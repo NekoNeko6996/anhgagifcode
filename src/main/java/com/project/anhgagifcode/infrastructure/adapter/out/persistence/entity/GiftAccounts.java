@@ -66,8 +66,8 @@ public class GiftAccounts implements Serializable {
     @Column(name = "status")
     private String status;
     @Size(max = 50)
-    @Column(name = "platfrom")
-    private String platfrom;
+    @Column(name = "platform")
+    private String platform;
     @Lob
     @Size(max = 65535)
     @Column(name = "token")
@@ -134,12 +134,12 @@ public class GiftAccounts implements Serializable {
         this.status = status;
     }
 
-    public String getPlatfrom() {
-        return platfrom;
+    public String getPlatform() {
+        return platform;
     }
 
-    public void setPlatfrom(String platfrom) {
-        this.platfrom = platfrom;
+    public void setPlatform(String platform) {
+        this.platform = platform;
     }
 
     public String getToken() {

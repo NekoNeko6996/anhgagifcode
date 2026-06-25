@@ -8,10 +8,8 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring")
 public interface GiftAccountMapper {
     
-    @Mapping(source = "platfrom", target = "platform")
     GiftAccount toDomain(GiftAccounts entity);
 
-    @Mapping(source = "platform", target = "platfrom")
     @Mapping(target = "eggs", ignore = true)
     @Mapping(target = "poolAccountMappingsCollection", ignore = true)
     @Mapping(target = "eggOpeningLogsCollection", ignore = true)
