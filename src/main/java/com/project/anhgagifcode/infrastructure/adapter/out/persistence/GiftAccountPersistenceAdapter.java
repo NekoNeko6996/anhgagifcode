@@ -5,6 +5,7 @@ import com.project.anhgagifcode.domain.model.GiftAccount;
 import com.project.anhgagifcode.infrastructure.adapter.out.persistence.entity.GiftAccounts;
 import com.project.anhgagifcode.infrastructure.adapter.out.persistence.mapper.GiftAccountMapper;
 import com.project.anhgagifcode.infrastructure.adapter.out.persistence.repository.GiftAccountJpaRepository;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -34,5 +35,19 @@ public class GiftAccountPersistenceAdapter implements GiftAccountPersistencePort
     @Override
     public void updateAccount(GiftAccount account) {
         repository.save(mapper.toEntity(account));
+    }
+    
+        @Override
+    public GiftAccount save(GiftAccount account) {
+        GiftAccounts savedEntity = repository.save(mapper.toEntity(account));
+        return mapper.toDomain(savedEntity);
+    }
+
+    @Override
+    public void saveAll(List<GiftAccount> accounts) {
+        List<GiftAccounts> entities = accounts.stream()
+                .map(mapper::toEntity)
+                .toList();
+        repository.saveAll(entities);
     }
 }

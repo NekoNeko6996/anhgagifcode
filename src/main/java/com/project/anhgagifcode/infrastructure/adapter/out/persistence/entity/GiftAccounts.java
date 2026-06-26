@@ -5,24 +5,19 @@
 package com.project.anhgagifcode.infrastructure.adapter.out.persistence.entity;
 
 import jakarta.persistence.Basic;
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Lob;
 import jakarta.persistence.NamedQueries;
 import jakarta.persistence.NamedQuery;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import jakarta.xml.bind.annotation.XmlRootElement;
-import jakarta.xml.bind.annotation.XmlTransient;
 import java.io.Serializable;
-import java.util.Collection;
 import java.util.Date;
 
 /**
@@ -38,6 +33,7 @@ import java.util.Date;
     @NamedQuery(name = "GiftAccounts.findByUsername", query = "SELECT g FROM GiftAccounts g WHERE g.username = :username"),
     @NamedQuery(name = "GiftAccounts.findByPassword", query = "SELECT g FROM GiftAccounts g WHERE g.password = :password"),
     @NamedQuery(name = "GiftAccounts.findByStatus", query = "SELECT g FROM GiftAccounts g WHERE g.status = :status"),
+    @NamedQuery(name = "GiftAccounts.findByTier", query = "SELECT g FROM GiftAccounts g WHERE g.tier = :tier"),
     @NamedQuery(name = "GiftAccounts.findByPlatform", query = "SELECT g FROM GiftAccounts g WHERE g.platform = :platform"),
     @NamedQuery(name = "GiftAccounts.findByCreatedAt", query = "SELECT g FROM GiftAccounts g WHERE g.createdAt = :createdAt"),
     @NamedQuery(name = "GiftAccounts.findByAssignedAt", query = "SELECT g FROM GiftAccounts g WHERE g.assignedAt = :assignedAt")})
@@ -65,6 +61,11 @@ public class GiftAccounts implements Serializable {
     @Size(min = 1, max = 50)
     @Column(name = "status")
     private String status;
+    @Basic(optional = false)
+    @NotNull
+    @Size(min = 1, max = 10)
+    @Column(name = "tier")
+    private String tier;
     @Size(max = 50)
     @Column(name = "platform")
     private String platform;
@@ -80,12 +81,6 @@ public class GiftAccounts implements Serializable {
     @Column(name = "assigned_at")
     @Temporal(TemporalType.TIMESTAMP)
     private Date assignedAt;
-    @OneToOne(mappedBy = "accountId")
-    private Eggs eggs;
-    @OneToMany(cascade = CascadeType.ALL, mappedBy = "accountId")
-    private Collection<PoolAccountMappings> poolAccountMappingsCollection;
-    @OneToMany(cascade = CascadeType.ALL, mappedBy = "accountId")
-    private Collection<EggOpeningLogs> eggOpeningLogsCollection;
 
     public GiftAccounts() {
     }
@@ -94,11 +89,12 @@ public class GiftAccounts implements Serializable {
         this.id = id;
     }
 
-    public GiftAccounts(String id, String username, String password, String status, Date createdAt) {
+    public GiftAccounts(String id, String username, String password, String status, String tier, Date createdAt) {
         this.id = id;
         this.username = username;
         this.password = password;
         this.status = status;
+        this.tier = tier;
         this.createdAt = createdAt;
     }
 
@@ -134,6 +130,14 @@ public class GiftAccounts implements Serializable {
         this.status = status;
     }
 
+    public String getTier() {
+        return tier;
+    }
+
+    public void setTier(String tier) {
+        this.tier = tier;
+    }
+
     public String getPlatform() {
         return platform;
     }
@@ -164,32 +168,6 @@ public class GiftAccounts implements Serializable {
 
     public void setAssignedAt(Date assignedAt) {
         this.assignedAt = assignedAt;
-    }
-
-    public Eggs getEggs() {
-        return eggs;
-    }
-
-    public void setEggs(Eggs eggs) {
-        this.eggs = eggs;
-    }
-
-    @XmlTransient
-    public Collection<PoolAccountMappings> getPoolAccountMappingsCollection() {
-        return poolAccountMappingsCollection;
-    }
-
-    public void setPoolAccountMappingsCollection(Collection<PoolAccountMappings> poolAccountMappingsCollection) {
-        this.poolAccountMappingsCollection = poolAccountMappingsCollection;
-    }
-
-    @XmlTransient
-    public Collection<EggOpeningLogs> getEggOpeningLogsCollection() {
-        return eggOpeningLogsCollection;
-    }
-
-    public void setEggOpeningLogsCollection(Collection<EggOpeningLogs> eggOpeningLogsCollection) {
-        this.eggOpeningLogsCollection = eggOpeningLogsCollection;
     }
 
     @Override

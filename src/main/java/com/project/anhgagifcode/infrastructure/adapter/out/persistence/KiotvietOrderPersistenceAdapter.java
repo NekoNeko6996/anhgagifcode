@@ -27,12 +27,12 @@ public class KiotvietOrderPersistenceAdapter implements KiotvietOrderPersistence
     @Override
     public KiotvietOrder saveOrder(KiotvietOrder order) {
         KiotvietOrders entity = mapper.toEntity(order);
-        
+
         if (order.getCustomerCode() != null) {
             customerJpaRepository.findByCustomerCode(order.getCustomerCode())
                     .ifPresent(entity::setCustomerCode);
         }
-        
+
         KiotvietOrders savedEntity = repository.save(entity);
         return mapper.toDomain(savedEntity);
     }
