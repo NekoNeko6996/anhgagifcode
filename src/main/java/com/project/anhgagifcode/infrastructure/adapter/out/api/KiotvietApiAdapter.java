@@ -21,8 +21,8 @@ public class KiotvietApiAdapter implements KiotvietApiPort {
         log.info("Đang gọi API KiotViet để lấy thông tin đơn hàng: {}", orderCode);
         
         try {
-            // TODO: Viết logic gọi HTTP GET đến KiotViet API tại đây
-            // Ví dụ:
+            // Logic gọi HTTP GET đến KiotViet API tại đây
+            System.out.println(orderCode);
             // String url = "https://public.kiotapi.com/invoices?code=" + orderCode;
             // HttpHeaders headers = new HttpHeaders();
             // headers.setBearerAuth("YOUR_KIOTVIET_TOKEN");
