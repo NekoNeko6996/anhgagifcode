@@ -4,13 +4,13 @@ import com.project.anhgagifcode.domain.model.GiftAccount;
 import java.util.Optional;
 
 public interface GiftAccountPersistencePort {
-    // Đếm số lượng tài khoản còn khả dụng trong 1 Pool
-    long countAvailableAccounts(String poolId);
     
-    // Lấy 1 tài khoản khả dụng dựa trên Offset random (kèm Pessimistic Lock)
-    // Tầng Adapter (Impl) sẽ chịu trách nhiệm chuyển offset này thành Pageable của JPA
-    Optional<GiftAccount> loadAvailableAccountWithLock(String poolId, int offset);
+    // Hàm quan trọng nhất: Đếm số quà còn lại trong 1 Pool
+    long countAvailableAccountsByPoolId(String poolId);
     
-    // Lưu cập nhật trạng thái tài khoản (chuyển sang ASSIGNED)
-    GiftAccount saveAccount(GiftAccount account);
+    // Dùng OFFSET để pick ngẫu nhiên 1 Account và LOCK nó lại (Pessimistic Lock)
+    Optional<GiftAccount> pickRandomAvailableAccountForUpdate(String poolId, int offset);
+    
+    // Cập nhật trạng thái Account sau khi đã trao cho khách
+    void updateAccount(GiftAccount account);
 }

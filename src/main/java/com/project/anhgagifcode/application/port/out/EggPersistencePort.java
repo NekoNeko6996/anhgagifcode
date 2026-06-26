@@ -5,18 +5,20 @@ import java.util.List;
 import java.util.Optional;
 
 public interface EggPersistencePort {
-    // Kèm khóa Pessimistic Lock chống Race Condition khi mở trứng
-    Optional<Egg> loadEggByIdWithLock(String id);
     
-    // Lấy danh sách trứng theo Order ID
-    List<Egg> loadEggsByOrderId(String orderId);
-    
-    // Kiểm tra đơn hàng đã tạo loại trứng này chưa (chống tạo đúp)
-    boolean existsByOrderIdAndEggType(String orderId, int eggType);
-    
-    // Lưu hoặc Cập nhật trứng
+    // Lưu thông tin quả trứng (khi mới sinh ra hoặc khi update status)
     Egg saveEgg(Egg egg);
     
-    // Hủy toàn bộ trứng của một đơn hàng (dùng khi Webhook Sapo báo huỷ đơn)
+    // Load Trứng bằng ID (Dùng khi khách bấm "Mở Trứng")
+    // Lưu ý: Cần hỗ trợ Pessimistic Lock ở tầng Adapter để chống Race Condition
+    Optional<Egg> loadEggForUpdate(String eggId);
+    
+    // Lấy toàn bộ trứng của một đơn hàng (Dùng để hiển thị cho UI)
+    List<Egg> loadEggsByOrderId(String orderId);
+    
+    // Cập nhật hàng loạt: Khi đơn hàng bị hoàn, chuyển tất cả trứng của đơn đó sang CANCELLED
     void cancelEggsByOrderId(String orderId);
+    
+    // Kiểm tra xem đơn hàng này đã từng sinh trứng thuộc Pool này chưa (Tránh duplicate)
+    boolean existsByOrderIdAndPoolId(String orderId, String poolId);
 }
