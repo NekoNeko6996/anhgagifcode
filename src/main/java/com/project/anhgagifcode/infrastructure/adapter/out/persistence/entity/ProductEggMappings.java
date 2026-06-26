@@ -31,8 +31,7 @@ import java.util.Date;
 @NamedQueries({
     @NamedQuery(name = "ProductEggMappings.findAll", query = "SELECT p FROM ProductEggMappings p"),
     @NamedQuery(name = "ProductEggMappings.findById", query = "SELECT p FROM ProductEggMappings p WHERE p.id = :id"),
-    @NamedQuery(name = "ProductEggMappings.findBySapoProductId", query = "SELECT p FROM ProductEggMappings p WHERE p.sapoProductId = :sapoProductId"),
-    @NamedQuery(name = "ProductEggMappings.findBySapoVariantId", query = "SELECT p FROM ProductEggMappings p WHERE p.sapoVariantId = :sapoVariantId"),
+    @NamedQuery(name = "ProductEggMappings.findByKvProductId", query = "SELECT p FROM ProductEggMappings p WHERE p.kvProductId = :kvProductId"),
     @NamedQuery(name = "ProductEggMappings.findByEggType", query = "SELECT p FROM ProductEggMappings p WHERE p.eggType = :eggType"),
     @NamedQuery(name = "ProductEggMappings.findByEggTier", query = "SELECT p FROM ProductEggMappings p WHERE p.eggTier = :eggTier"),
     @NamedQuery(name = "ProductEggMappings.findByCreatedAt", query = "SELECT p FROM ProductEggMappings p WHERE p.createdAt = :createdAt"),
@@ -49,13 +48,8 @@ public class ProductEggMappings implements Serializable {
     @Basic(optional = false)
     @NotNull
     @Size(min = 1, max = 100)
-    @Column(name = "sapo_product_id")
-    private String sapoProductId;
-    @Basic(optional = false)
-    @NotNull
-    @Size(min = 1, max = 100)
-    @Column(name = "sapo_variant_id")
-    private String sapoVariantId;
+    @Column(name = "kv_product_id")
+    private String kvProductId;
     @Basic(optional = false)
     @NotNull
     @Column(name = "egg_type")
@@ -84,10 +78,9 @@ public class ProductEggMappings implements Serializable {
         this.id = id;
     }
 
-    public ProductEggMappings(String id, String sapoProductId, String sapoVariantId, int eggType, String eggTier, Date createdAt) {
+    public ProductEggMappings(String id, String kvProductId, int eggType, String eggTier, Date createdAt) {
         this.id = id;
-        this.sapoProductId = sapoProductId;
-        this.sapoVariantId = sapoVariantId;
+        this.kvProductId = kvProductId;
         this.eggType = eggType;
         this.eggTier = eggTier;
         this.createdAt = createdAt;
@@ -101,20 +94,12 @@ public class ProductEggMappings implements Serializable {
         this.id = id;
     }
 
-    public String getSapoProductId() {
-        return sapoProductId;
+    public String getKvProductId() {
+        return kvProductId;
     }
 
-    public void setSapoProductId(String sapoProductId) {
-        this.sapoProductId = sapoProductId;
-    }
-
-    public String getSapoVariantId() {
-        return sapoVariantId;
-    }
-
-    public void setSapoVariantId(String sapoVariantId) {
-        this.sapoVariantId = sapoVariantId;
+    public void setKvProductId(String kvProductId) {
+        this.kvProductId = kvProductId;
     }
 
     public int getEggType() {

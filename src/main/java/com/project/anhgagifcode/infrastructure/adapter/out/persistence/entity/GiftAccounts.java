@@ -38,7 +38,7 @@ import java.util.Date;
     @NamedQuery(name = "GiftAccounts.findByUsername", query = "SELECT g FROM GiftAccounts g WHERE g.username = :username"),
     @NamedQuery(name = "GiftAccounts.findByPassword", query = "SELECT g FROM GiftAccounts g WHERE g.password = :password"),
     @NamedQuery(name = "GiftAccounts.findByStatus", query = "SELECT g FROM GiftAccounts g WHERE g.status = :status"),
-    @NamedQuery(name = "GiftAccounts.findByPlatfrom", query = "SELECT g FROM GiftAccounts g WHERE g.platfrom = :platfrom"),
+    @NamedQuery(name = "GiftAccounts.findByPlatform", query = "SELECT g FROM GiftAccounts g WHERE g.platform = :platform"),
     @NamedQuery(name = "GiftAccounts.findByCreatedAt", query = "SELECT g FROM GiftAccounts g WHERE g.createdAt = :createdAt"),
     @NamedQuery(name = "GiftAccounts.findByAssignedAt", query = "SELECT g FROM GiftAccounts g WHERE g.assignedAt = :assignedAt")})
 public class GiftAccounts implements Serializable {

@@ -10,14 +10,14 @@ import java.time.LocalDateTime;
 @Builder
 public class Egg {
     private String id;
-    private int eggType;
+    private int eggType; // Dùng 1 hoặc 2 để phân biệt logic ấp
     private String status;
     private LocalDateTime hatchAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     
-    // Domain Model chứa Object reference đến các entity quan trọng để dễ truy xuất
-    private SapoOrder order;
+    // Đổi tham chiếu từ SapoOrder sang KiotvietOrder
+    private KiotvietOrder order;
     private GiftAccount account;
     private GiftPool giftPool;
 }

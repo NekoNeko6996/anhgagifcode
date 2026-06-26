@@ -13,26 +13,28 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.NamedQueries;
 import jakarta.persistence.NamedQuery;
 import jakarta.persistence.Table;
+import jakarta.persistence.Temporal;
+import jakarta.persistence.TemporalType;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import jakarta.xml.bind.annotation.XmlRootElement;
 import java.io.Serializable;
+import java.util.Date;
 
 /**
  *
  * @author tranp
  */
 @Entity
-@Table(name = "sapo_order_items")
+@Table(name = "kiotviet_order_items")
 @XmlRootElement
 @NamedQueries({
-    @NamedQuery(name = "SapoOrderItems.findAll", query = "SELECT s FROM SapoOrderItems s"),
-    @NamedQuery(name = "SapoOrderItems.findById", query = "SELECT s FROM SapoOrderItems s WHERE s.id = :id"),
-    @NamedQuery(name = "SapoOrderItems.findBySapoProductId", query = "SELECT s FROM SapoOrderItems s WHERE s.sapoProductId = :sapoProductId"),
-    @NamedQuery(name = "SapoOrderItems.findBySapoVariantId", query = "SELECT s FROM SapoOrderItems s WHERE s.sapoVariantId = :sapoVariantId"),
-    @NamedQuery(name = "SapoOrderItems.findBySku", query = "SELECT s FROM SapoOrderItems s WHERE s.sku = :sku"),
-    @NamedQuery(name = "SapoOrderItems.findByQuantity", query = "SELECT s FROM SapoOrderItems s WHERE s.quantity = :quantity")})
-public class SapoOrderItems implements Serializable {
+    @NamedQuery(name = "KiotvietOrderItems.findAll", query = "SELECT k FROM KiotvietOrderItems k"),
+    @NamedQuery(name = "KiotvietOrderItems.findById", query = "SELECT k FROM KiotvietOrderItems k WHERE k.id = :id"),
+    @NamedQuery(name = "KiotvietOrderItems.findByKvProductId", query = "SELECT k FROM KiotvietOrderItems k WHERE k.kvProductId = :kvProductId"),
+    @NamedQuery(name = "KiotvietOrderItems.findByQuantity", query = "SELECT k FROM KiotvietOrderItems k WHERE k.quantity = :quantity"),
+    @NamedQuery(name = "KiotvietOrderItems.findByLastSyncedAt", query = "SELECT k FROM KiotvietOrderItems k WHERE k.lastSyncedAt = :lastSyncedAt")})
+public class KiotvietOrderItems implements Serializable {
 
     private static final long serialVersionUID = 1L;
     @Id
@@ -44,38 +46,29 @@ public class SapoOrderItems implements Serializable {
     @Basic(optional = false)
     @NotNull
     @Size(min = 1, max = 100)
-    @Column(name = "sapo_product_id")
-    private String sapoProductId;
-    @Basic(optional = false)
-    @NotNull
-    @Size(min = 1, max = 100)
-    @Column(name = "sapo_variant_id")
-    private String sapoVariantId;
-    @Basic(optional = false)
-    @NotNull
-    @Size(min = 1, max = 100)
-    @Column(name = "sku")
-    private String sku;
+    @Column(name = "kv_product_id")
+    private String kvProductId;
     @Basic(optional = false)
     @NotNull
     @Column(name = "quantity")
     private int quantity;
+    @Column(name = "last_synced_at")
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date lastSyncedAt;
     @JoinColumn(name = "order_id", referencedColumnName = "id")
     @ManyToOne(optional = false)
-    private SapoOrders orderId;
+    private KiotvietOrders orderId;
 
-    public SapoOrderItems() {
+    public KiotvietOrderItems() {
     }
 
-    public SapoOrderItems(String id) {
+    public KiotvietOrderItems(String id) {
         this.id = id;
     }
 
-    public SapoOrderItems(String id, String sapoProductId, String sapoVariantId, String sku, int quantity) {
+    public KiotvietOrderItems(String id, String kvProductId, int quantity) {
         this.id = id;
-        this.sapoProductId = sapoProductId;
-        this.sapoVariantId = sapoVariantId;
-        this.sku = sku;
+        this.kvProductId = kvProductId;
         this.quantity = quantity;
     }
 
@@ -87,28 +80,12 @@ public class SapoOrderItems implements Serializable {
         this.id = id;
     }
 
-    public String getSapoProductId() {
-        return sapoProductId;
+    public String getKvProductId() {
+        return kvProductId;
     }
 
-    public void setSapoProductId(String sapoProductId) {
-        this.sapoProductId = sapoProductId;
-    }
-
-    public String getSapoVariantId() {
-        return sapoVariantId;
-    }
-
-    public void setSapoVariantId(String sapoVariantId) {
-        this.sapoVariantId = sapoVariantId;
-    }
-
-    public String getSku() {
-        return sku;
-    }
-
-    public void setSku(String sku) {
-        this.sku = sku;
+    public void setKvProductId(String kvProductId) {
+        this.kvProductId = kvProductId;
     }
 
     public int getQuantity() {
@@ -119,11 +96,19 @@ public class SapoOrderItems implements Serializable {
         this.quantity = quantity;
     }
 
-    public SapoOrders getOrderId() {
+    public Date getLastSyncedAt() {
+        return lastSyncedAt;
+    }
+
+    public void setLastSyncedAt(Date lastSyncedAt) {
+        this.lastSyncedAt = lastSyncedAt;
+    }
+
+    public KiotvietOrders getOrderId() {
         return orderId;
     }
 
-    public void setOrderId(SapoOrders orderId) {
+    public void setOrderId(KiotvietOrders orderId) {
         this.orderId = orderId;
     }
 
@@ -137,10 +122,10 @@ public class SapoOrderItems implements Serializable {
     @Override
     public boolean equals(Object object) {
         // TODO: Warning - this method won't work in the case the id fields are not set
-        if (!(object instanceof SapoOrderItems)) {
+        if (!(object instanceof KiotvietOrderItems)) {
             return false;
         }
-        SapoOrderItems other = (SapoOrderItems) object;
+        KiotvietOrderItems other = (KiotvietOrderItems) object;
         if ((this.id == null && other.id != null) || (this.id != null && !this.id.equals(other.id))) {
             return false;
         }
@@ -149,7 +134,7 @@ public class SapoOrderItems implements Serializable {
 
     @Override
     public String toString() {
-        return "com.project.anhgagifcode.infrastructure.adapter.out.persistence.entity.SapoOrderItems[ id=" + id + " ]";
+        return "com.project.anhgagifcode.infrastructure.adapter.out.persistence.entity.KiotvietOrderItems[ id=" + id + " ]";
     }
     
 }

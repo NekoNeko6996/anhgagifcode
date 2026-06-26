@@ -8,12 +8,10 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class ProductEggMapping {
+public class KiotvietOrderItem {
     private String id;
     private String kvProductId;
-    private int eggType;      
-    private String eggTier;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
-    private GiftPool giftPool;
+    private int quantity;
+    private LocalDateTime lastSyncedAt;
+    private String orderId; // Chỉ lưu ID của Order cha
 }

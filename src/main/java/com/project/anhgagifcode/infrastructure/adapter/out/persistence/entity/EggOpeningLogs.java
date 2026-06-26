@@ -41,7 +41,7 @@ public class EggOpeningLogs implements Serializable {
     @Id
     @Basic(optional = false)
     @NotNull
-    @Size(min = 1, max = 36)
+    @Size(min = 1, max = 100)
     @Column(name = "id")
     private String id;
     @Basic(optional = false)
@@ -54,9 +54,7 @@ public class EggOpeningLogs implements Serializable {
     @Size(min = 1, max = 100)
     @Column(name = "triggered_by")
     private String triggeredBy;
-    @Basic(optional = false)
-    @NotNull
-    @Size(min = 1, max = 45)
+    @Size(max = 45)
     @Column(name = "ip_address")
     private String ipAddress;
     @Basic(optional = false)
@@ -64,12 +62,12 @@ public class EggOpeningLogs implements Serializable {
     @Column(name = "created_at")
     @Temporal(TemporalType.TIMESTAMP)
     private Date createdAt;
-    @JoinColumn(name = "account_id", referencedColumnName = "id")
-    @ManyToOne(optional = false)
-    private GiftAccounts accountId;
     @JoinColumn(name = "egg_id", referencedColumnName = "id")
     @ManyToOne(optional = false)
     private Eggs eggId;
+    @JoinColumn(name = "account_id", referencedColumnName = "id")
+    @ManyToOne(optional = false)
+    private GiftAccounts accountId;
 
     public EggOpeningLogs() {
     }
@@ -78,11 +76,10 @@ public class EggOpeningLogs implements Serializable {
         this.id = id;
     }
 
-    public EggOpeningLogs(String id, String actionType, String triggeredBy, String ipAddress, Date createdAt) {
+    public EggOpeningLogs(String id, String actionType, String triggeredBy, Date createdAt) {
         this.id = id;
         this.actionType = actionType;
         this.triggeredBy = triggeredBy;
-        this.ipAddress = ipAddress;
         this.createdAt = createdAt;
     }
 
@@ -126,20 +123,20 @@ public class EggOpeningLogs implements Serializable {
         this.createdAt = createdAt;
     }
 
-    public GiftAccounts getAccountId() {
-        return accountId;
-    }
-
-    public void setAccountId(GiftAccounts accountId) {
-        this.accountId = accountId;
-    }
-
     public Eggs getEggId() {
         return eggId;
     }
 
     public void setEggId(Eggs eggId) {
         this.eggId = eggId;
+    }
+
+    public GiftAccounts getAccountId() {
+        return accountId;
+    }
+
+    public void setAccountId(GiftAccounts accountId) {
+        this.accountId = accountId;
     }
 
     @Override

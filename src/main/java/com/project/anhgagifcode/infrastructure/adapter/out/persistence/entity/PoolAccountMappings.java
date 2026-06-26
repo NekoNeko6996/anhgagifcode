@@ -37,12 +37,12 @@ public class PoolAccountMappings implements Serializable {
     @Size(min = 1, max = 36)
     @Column(name = "id")
     private String id;
-    @JoinColumn(name = "account_id", referencedColumnName = "id")
-    @ManyToOne(optional = false)
-    private GiftAccounts accountId;
     @JoinColumn(name = "pool_id", referencedColumnName = "id")
     @ManyToOne(optional = false)
     private GiftPools poolId;
+    @JoinColumn(name = "account_id", referencedColumnName = "id")
+    @ManyToOne(optional = false)
+    private GiftAccounts accountId;
 
     public PoolAccountMappings() {
     }
@@ -59,20 +59,20 @@ public class PoolAccountMappings implements Serializable {
         this.id = id;
     }
 
-    public GiftAccounts getAccountId() {
-        return accountId;
-    }
-
-    public void setAccountId(GiftAccounts accountId) {
-        this.accountId = accountId;
-    }
-
     public GiftPools getPoolId() {
         return poolId;
     }
 
     public void setPoolId(GiftPools poolId) {
         this.poolId = poolId;
+    }
+
+    public GiftAccounts getAccountId() {
+        return accountId;
+    }
+
+    public void setAccountId(GiftAccounts accountId) {
+        this.accountId = accountId;
     }
 
     @Override

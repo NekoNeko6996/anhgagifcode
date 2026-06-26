@@ -8,12 +8,14 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class ProductEggMapping {
+public class Customer {
     private String id;
-    private String kvProductId;
-    private int eggType;      
-    private String eggTier;
+    private String customerCode;
+    private String customerName;
+    private String status;
+    private int successCount;
+    private int returnStreak;
+    private int warningCount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private GiftPool giftPool;
 }

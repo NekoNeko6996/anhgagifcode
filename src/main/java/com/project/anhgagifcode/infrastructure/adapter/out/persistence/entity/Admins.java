@@ -42,7 +42,7 @@ public class Admins implements Serializable {
     @Id
     @Basic(optional = false)
     @NotNull
-    @Size(min = 1, max = 36)
+    @Size(min = 1, max = 100)
     @Column(name = "id")
     private String id;
     @Basic(optional = false)
@@ -57,7 +57,7 @@ public class Admins implements Serializable {
     private String passwordHash;
     @Basic(optional = false)
     @NotNull
-    @Size(min = 1, max = 150)
+    @Size(min = 1, max = 50)
     @Column(name = "full_name")
     private String fullName;
     @Basic(optional = false)

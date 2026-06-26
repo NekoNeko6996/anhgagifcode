@@ -5,10 +5,10 @@ import com.project.anhgagifcode.infrastructure.adapter.out.persistence.entity.Eg
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
-@Mapper(componentModel = "spring", uses = {SapoOrderMapper.class, GiftAccountMapper.class, GiftPoolMapper.class})
+@Mapper(componentModel = "spring", uses = {KiotvietOrderMapper.class, GiftAccountMapper.class, GiftPoolMapper.class})
 public interface EggMapper {
 
-    @Mapping(source = "orderId", target = "order")
+    @Mapping(source = "orderId", target = "order") // NetBeans gen SapoOrders thành KiotvietOrders
     @Mapping(source = "accountId", target = "account")
     @Mapping(source = "giftPoolId", target = "giftPool")
     Egg toDomain(Eggs entity);

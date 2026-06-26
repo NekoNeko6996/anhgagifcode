@@ -59,8 +59,6 @@ public class Eggs implements Serializable {
     @Size(min = 1, max = 50)
     @Column(name = "status")
     private String status;
-    @Basic(optional = false)
-    @NotNull
     @Column(name = "hatch_at")
     @Temporal(TemporalType.TIMESTAMP)
     private Date hatchAt;
@@ -72,12 +70,12 @@ public class Eggs implements Serializable {
     @Column(name = "updated_at")
     @Temporal(TemporalType.TIMESTAMP)
     private Date updatedAt;
+    @JoinColumn(name = "order_id", referencedColumnName = "id")
+    @ManyToOne(optional = false)
+    private KiotvietOrders orderId;
     @JoinColumn(name = "account_id", referencedColumnName = "id")
     @OneToOne
     private GiftAccounts accountId;
-    @JoinColumn(name = "order_id", referencedColumnName = "id")
-    @ManyToOne(optional = false)
-    private SapoOrders orderId;
     @JoinColumn(name = "gift_pool_id", referencedColumnName = "id")
     @ManyToOne(optional = false)
     private GiftPools giftPoolId;
@@ -91,11 +89,10 @@ public class Eggs implements Serializable {
         this.id = id;
     }
 
-    public Eggs(String id, int eggType, String status, Date hatchAt, Date createdAt) {
+    public Eggs(String id, int eggType, String status, Date createdAt) {
         this.id = id;
         this.eggType = eggType;
         this.status = status;
-        this.hatchAt = hatchAt;
         this.createdAt = createdAt;
     }
 
@@ -147,20 +144,20 @@ public class Eggs implements Serializable {
         this.updatedAt = updatedAt;
     }
 
+    public KiotvietOrders getOrderId() {
+        return orderId;
+    }
+
+    public void setOrderId(KiotvietOrders orderId) {
+        this.orderId = orderId;
+    }
+
     public GiftAccounts getAccountId() {
         return accountId;
     }
 
     public void setAccountId(GiftAccounts accountId) {
         this.accountId = accountId;
-    }
-
-    public SapoOrders getOrderId() {
-        return orderId;
-    }
-
-    public void setOrderId(SapoOrders orderId) {
-        this.orderId = orderId;
     }
 
     public GiftPools getGiftPoolId() {
