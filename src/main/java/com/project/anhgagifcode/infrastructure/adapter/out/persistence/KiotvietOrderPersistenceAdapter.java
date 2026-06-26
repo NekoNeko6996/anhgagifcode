@@ -4,6 +4,7 @@ import com.project.anhgagifcode.application.port.out.KiotvietOrderPersistencePor
 import com.project.anhgagifcode.domain.model.KiotvietOrder;
 import com.project.anhgagifcode.infrastructure.adapter.out.persistence.entity.KiotvietOrders;
 import com.project.anhgagifcode.infrastructure.adapter.out.persistence.mapper.KiotvietOrderMapper;
+import com.project.anhgagifcode.infrastructure.adapter.out.persistence.repository.CustomerJpaRepository;
 import com.project.anhgagifcode.infrastructure.adapter.out.persistence.repository.KiotvietOrderJpaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -16,6 +17,7 @@ public class KiotvietOrderPersistenceAdapter implements KiotvietOrderPersistence
 
     private final KiotvietOrderJpaRepository repository;
     private final KiotvietOrderMapper mapper;
+    private final CustomerJpaRepository customerJpaRepository;
 
     @Override
     public Optional<KiotvietOrder> loadByOrderCode(String orderCode) {
@@ -25,6 +27,12 @@ public class KiotvietOrderPersistenceAdapter implements KiotvietOrderPersistence
     @Override
     public KiotvietOrder saveOrder(KiotvietOrder order) {
         KiotvietOrders entity = mapper.toEntity(order);
+        
+        if (order.getCustomerCode() != null) {
+            customerJpaRepository.findByCustomerCode(order.getCustomerCode())
+                    .ifPresent(entity::setCustomerCode);
+        }
+        
         KiotvietOrders savedEntity = repository.save(entity);
         return mapper.toDomain(savedEntity);
     }
