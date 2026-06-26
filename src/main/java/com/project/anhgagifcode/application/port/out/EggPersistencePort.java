@@ -20,5 +20,5 @@ public interface EggPersistencePort {
     void cancelEggsByOrderId(String orderId);
     
     // Kiểm tra xem đơn hàng này đã từng sinh trứng thuộc Pool này chưa (Tránh duplicate)
-    boolean existsByOrderIdAndPoolId(String orderId, String poolId);
+    boolean existsByOrderIdAndPoolIdAndEggType(String orderId, String poolId, int eggType);
 }

@@ -44,7 +44,7 @@ public class EggPersistenceAdapter implements EggPersistencePort {
     }
 
     @Override
-    public boolean existsByOrderIdAndPoolId(String orderId, String poolId) {
-        return repository.existsByOrderIdAndGiftPoolId(orderId, poolId);
+    public boolean existsByOrderIdAndPoolIdAndEggType(String orderId, String poolId, int eggType) {
+        return repository.existsByOrderIdAndGiftPoolIdAndEggType(orderId, poolId, eggType);
     }
 }

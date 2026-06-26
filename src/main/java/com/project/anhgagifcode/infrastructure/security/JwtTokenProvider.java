@@ -1,6 +1,7 @@
 package com.project.anhgagifcode.infrastructure.security;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
@@ -15,11 +16,10 @@ import java.util.Date;
 @Component
 public class JwtTokenProvider {
 
-    @Value("${jwt.secret}")
+    @Value("${jwt.secret:daylamotchuoisieubaomatvadaidechonghackbangjwt123456}")
     private String jwtSecret;
 
-    // Mặc định token sống 24 giờ
-    private final long jwtExpirationMs = 86400000L;
+    private final long jwtExpirationMs = 86400000L; // 24h
 
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
@@ -27,12 +27,10 @@ public class JwtTokenProvider {
 
     public String generateToken(String username) {
         Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
-
         return Jwts.builder()
                 .subject(username)
                 .issuedAt(now)
-                .expiration(expiryDate)
+                .expiration(new Date(now.getTime() + jwtExpirationMs))
                 .signWith(getSigningKey())
                 .compact();
     }
@@ -50,9 +48,9 @@ public class JwtTokenProvider {
         try {
             Jwts.parser().verifyWith(getSigningKey()).build().parseSignedClaims(token);
             return true;
-        } catch (Exception ex) {
+        } catch (JwtException | IllegalArgumentException ex) {
             log.error("Lỗi xác thực JWT: {}", ex.getMessage());
+            return false;
         }
-        return false;
     }
 }

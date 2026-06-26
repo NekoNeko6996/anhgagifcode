@@ -24,6 +24,6 @@ public interface EggJpaRepository extends JpaRepository<Eggs, String> {
     @Query("UPDATE Eggs e SET e.status = 'CANCELLED' WHERE e.orderId.id = :orderId")
     void cancelEggsByOrderId(@Param("orderId") String orderId);
 
-    @Query("SELECT CASE WHEN COUNT(e) > 0 THEN TRUE ELSE FALSE END FROM Eggs e WHERE e.orderId.id = :orderId AND e.giftPoolId.id = :poolId")
-    boolean existsByOrderIdAndGiftPoolId(@Param("orderId") String orderId, @Param("poolId") String poolId);
+    @Query("SELECT CASE WHEN COUNT(e) > 0 THEN TRUE ELSE FALSE END FROM Eggs e WHERE e.orderId.id = :orderId AND e.giftPoolId.id = :poolId AND e.eggType = :eggType")
+    boolean existsByOrderIdAndGiftPoolIdAndEggType(@Param("orderId") String orderId, @Param("poolId") String poolId, @Param("eggType") int eggType);
 }

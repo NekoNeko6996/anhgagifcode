@@ -1,4 +1,4 @@
-package com.project.anhgagifcode.infrastructure.security.model;
+package com.project.anhgagifcode.infrastructure.security;
 
 import com.project.anhgagifcode.domain.model.Admin;
 import lombok.AllArgsConstructor;
@@ -21,14 +21,10 @@ public class CustomUserDetails implements UserDetails {
     }
 
     @Override
-    public String getPassword() {
-        return admin.getPasswordHash();
-    }
+    public String getPassword() { return admin.getPasswordHash(); }
 
     @Override
-    public String getUsername() {
-        return admin.getUsername();
-    }
+    public String getUsername() { return admin.getUsername(); }
 
     @Override
     public boolean isAccountNonExpired() { return true; }
@@ -40,7 +36,5 @@ public class CustomUserDetails implements UserDetails {
     public boolean isCredentialsNonExpired() { return true; }
 
     @Override
-    public boolean isEnabled() {
-        return "ACTIVE".equals(admin.getStatus());
-    }
+    public boolean isEnabled() { return "ACTIVE".equals(admin.getStatus()); }
 }
