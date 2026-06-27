@@ -13,4 +13,6 @@ public interface KiotvietOrderPersistencePort {
     KiotvietOrder saveOrder(KiotvietOrder order);
 
     List<KiotvietOrder> findAll();
+
+    List<KiotvietOrder> findByCustomerCode(String customerCode);
 }

@@ -81,4 +81,21 @@ public class AdminGiftAccountController {
         deleteGiftAccountsUseCase.deleteAccounts(request);
         return ResponseEntity.ok(Map.of("message", "Xóa các tài khoản thành công!"));
     }
+
+    private final com.project.anhgagifcode.application.port.in.UpdateGiftAccountUseCase updateGiftAccountUseCase;
+
+    @Operation(summary = "Cập nhật thông tin tài khoản quà tặng", description = "Cho phép admin chỉnh sửa chi tiết tài khoản quà tặng (username, password, platform, status, token).")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Cập nhật thành công"),
+            @ApiResponse(responseCode = "404", description = "Không tìm thấy tài khoản"),
+            @ApiResponse(responseCode = "401", description = "Chưa xác thực"),
+            @ApiResponse(responseCode = "403", description = "Không có quyền")
+    })
+    @PutMapping("/{id}")
+    public ResponseEntity<GiftAccountDto> updateGiftAccount(
+            @PathVariable("id") String accountId,
+            @Valid @RequestBody com.project.anhgagifcode.application.port.in.dto.UpdateGiftAccountRequest request) {
+        GiftAccountDto updated = updateGiftAccountUseCase.updateGiftAccount(accountId, request);
+        return ResponseEntity.ok(updated);
+    }
 }

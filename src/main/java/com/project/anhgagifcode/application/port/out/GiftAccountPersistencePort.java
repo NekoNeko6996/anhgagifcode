@@ -24,4 +24,6 @@ public interface GiftAccountPersistencePort {
     List<GiftAccount> findAccountsByPoolId(String poolId);
 
     void deleteAccounts(List<String> ids);
+
+    Optional<GiftAccount> findById(String id);
 }

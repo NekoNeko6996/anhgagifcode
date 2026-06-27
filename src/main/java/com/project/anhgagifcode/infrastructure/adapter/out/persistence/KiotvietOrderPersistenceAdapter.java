@@ -47,4 +47,12 @@ public class KiotvietOrderPersistenceAdapter implements KiotvietOrderPersistence
                 .map(mapper::toDomain)
                 .collect(Collectors.toList());
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<KiotvietOrder> findByCustomerCode(String customerCode) {
+        return repository.findByCustomerCode(customerCode).stream()
+                .map(mapper::toDomain)
+                .collect(Collectors.toList());
+    }
 }

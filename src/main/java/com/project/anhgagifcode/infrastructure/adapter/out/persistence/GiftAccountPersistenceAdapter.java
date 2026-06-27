@@ -85,4 +85,10 @@ public class GiftAccountPersistenceAdapter implements GiftAccountPersistencePort
         eggOpeningLogRepository.deleteByAccountIdIn(ids);
         repository.deleteByIdIn(ids);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<GiftAccount> findById(String id) {
+        return repository.findById(id).map(mapper::toDomain);
+    }
 }

@@ -23,8 +23,11 @@ public class UseCaseConfig {
     public ClaimEggUseCase claimEggUseCase(
             EggPersistencePort eggPort,
             GiftAccountPersistencePort accountPort,
-            EggOpeningLogPersistencePort logPort) {
-        return new ClaimEggService(eggPort, accountPort, logPort);
+            EggOpeningLogPersistencePort logPort,
+            KiotvietOrderPersistencePort orderPort,
+            KiotvietApiPort apiPort,
+            CustomerPersistencePort customerPort) {
+        return new ClaimEggService(eggPort, accountPort, logPort, orderPort, apiPort, customerPort);
     }
     
     @Bean
@@ -114,5 +117,22 @@ public class UseCaseConfig {
     @Bean
     public DeleteProductEggMappingUseCase deleteProductEggMappingUseCase(ProductEggMappingPersistencePort mappingPort) {
         return new DeleteProductEggMappingService(mappingPort);
+    }
+
+    @Bean
+    public UpdateCustomerStatusUseCase updateCustomerStatusUseCase(CustomerPersistencePort customerPort) {
+        return new UpdateCustomerStatusService(customerPort);
+    }
+
+    @Bean
+    public UpdateGiftAccountUseCase updateGiftAccountUseCase(GiftAccountPersistencePort accountPort) {
+        return new UpdateGiftAccountService(accountPort);
+    }
+
+    @Bean
+    public UpdateAdminCredentialsUseCase updateAdminCredentialsUseCase(
+            com.project.anhgagifcode.infrastructure.adapter.out.persistence.repository.AdminJpaRepository adminJpaRepository,
+            org.springframework.security.crypto.password.PasswordEncoder passwordEncoder) {
+        return new UpdateAdminCredentialsService(adminJpaRepository, passwordEncoder);
     }
 }
