@@ -19,4 +19,8 @@ public interface PoolAccountMappingJpaRepository extends JpaRepository<PoolAccou
     @Modifying
     @Query("DELETE FROM PoolAccountMappings p WHERE p.poolId.id = :poolId AND p.accountId.id IN :accountIds")
     void deleteByPoolIdAndAccountIds(@Param("poolId") String poolId, @Param("accountIds") List<String> accountIds);
+
+    @Modifying
+    @Query("DELETE FROM PoolAccountMappings p WHERE p.accountId.id IN :accountIds")
+    void deleteByAccountIdIn(@Param("accountIds") List<String> accountIds);
 }

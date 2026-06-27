@@ -20,4 +20,8 @@ public interface GiftAccountJpaRepository extends JpaRepository<GiftAccounts, St
 
     @Query("SELECT g FROM GiftAccounts g JOIN PoolAccountMappings p ON g.id = p.accountId.id WHERE p.poolId.id = :poolId")
     java.util.List<GiftAccounts> findAccountsByPoolId(@Param("poolId") String poolId);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM GiftAccounts g WHERE g.id IN :accountIds")
+    void deleteByIdIn(@Param("accountIds") java.util.List<String> accountIds);
 }

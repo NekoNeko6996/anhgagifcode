@@ -1,7 +1,9 @@
 package com.project.anhgagifcode.infrastructure.adapter.in.web;
 
 import com.project.anhgagifcode.application.port.in.AddGiftAccountUseCase;
+import com.project.anhgagifcode.application.port.in.DeleteGiftAccountsUseCase;
 import com.project.anhgagifcode.application.port.in.GetGiftAccountsUseCase;
+import com.project.anhgagifcode.application.port.in.dto.DeleteGiftAccountsRequest;
 import com.project.anhgagifcode.application.port.in.dto.GiftAccountDto;
 import com.project.anhgagifcode.infrastructure.adapter.in.web.dto.CreateGiftAccountRequest;
 import io.swagger.v3.oas.annotations.Operation;
@@ -31,6 +33,7 @@ public class AdminGiftAccountController {
 
     private final AddGiftAccountUseCase addGiftAccountUseCase;
     private final GetGiftAccountsUseCase getGiftAccountsUseCase;
+    private final DeleteGiftAccountsUseCase deleteGiftAccountsUseCase;
 
     @Operation(summary = "Lấy danh sách tất cả tài khoản quà tặng", description = "Trả về toàn bộ danh sách tài khoản quà tặng hiện có trong kho.")
     @ApiResponses({
@@ -63,5 +66,19 @@ public class AdminGiftAccountController {
                 "message", "Import dữ liệu thành công!",
                 "totalImported", count
         ));
+    }
+
+    @Operation(summary = "Xóa danh sách tài khoản quà tặng", description = "Xóa một hoặc nhiều tài khoản quà tặng khỏi kho, tự động gỡ liên kết khỏi các bể quà và dọn sạch lịch sử mở trứng.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Xóa tài khoản thành công"),
+            @ApiResponse(responseCode = "400", description = "Yêu cầu không hợp lệ"),
+            @ApiResponse(responseCode = "401", description = "Chưa xác thực"),
+            @ApiResponse(responseCode = "403", description = "Không có quyền")
+    })
+    @PostMapping("/batch-delete")
+    public ResponseEntity<Map<String, String>> batchDeleteAccounts(
+            @Valid @RequestBody DeleteGiftAccountsRequest request) {
+        deleteGiftAccountsUseCase.deleteAccounts(request);
+        return ResponseEntity.ok(Map.of("message", "Xóa các tài khoản thành công!"));
     }
 }

@@ -4,7 +4,10 @@ import com.project.anhgagifcode.application.port.out.GiftAccountPersistencePort;
 import com.project.anhgagifcode.domain.model.GiftAccount;
 import com.project.anhgagifcode.infrastructure.adapter.out.persistence.entity.GiftAccounts;
 import com.project.anhgagifcode.infrastructure.adapter.out.persistence.mapper.GiftAccountMapper;
+import com.project.anhgagifcode.infrastructure.adapter.out.persistence.repository.EggJpaRepository;
+import com.project.anhgagifcode.infrastructure.adapter.out.persistence.repository.EggOpeningLogJpaRepository;
 import com.project.anhgagifcode.infrastructure.adapter.out.persistence.repository.GiftAccountJpaRepository;
+import com.project.anhgagifcode.infrastructure.adapter.out.persistence.repository.PoolAccountMappingJpaRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -20,6 +23,9 @@ public class GiftAccountPersistenceAdapter implements GiftAccountPersistencePort
 
     private final GiftAccountJpaRepository repository;
     private final GiftAccountMapper mapper;
+    private final EggJpaRepository eggRepository;
+    private final PoolAccountMappingJpaRepository poolAccountMappingRepository;
+    private final EggOpeningLogJpaRepository eggOpeningLogRepository;
 
     @Override
     public long countAvailableAccountsByPoolId(String poolId) {
@@ -66,5 +72,17 @@ public class GiftAccountPersistenceAdapter implements GiftAccountPersistencePort
         return repository.findAccountsByPoolId(poolId).stream()
                 .map(mapper::toDomain)
                 .toList();
+    }
+
+    @Override
+    @Transactional
+    public void deleteAccounts(List<String> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return;
+        }
+        eggRepository.nullifyAccountIdIn(ids);
+        poolAccountMappingRepository.deleteByAccountIdIn(ids);
+        eggOpeningLogRepository.deleteByAccountIdIn(ids);
+        repository.deleteByIdIn(ids);
     }
 }

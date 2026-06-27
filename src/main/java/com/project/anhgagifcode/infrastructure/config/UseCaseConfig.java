@@ -100,4 +100,19 @@ public class UseCaseConfig {
     public UpdateGiftPoolUseCase updateGiftPoolUseCase(GiftPoolPersistencePort poolPort) {
         return new UpdateGiftPoolService(poolPort);
     }
+
+    @Bean
+    public DeleteGiftAccountsUseCase deleteGiftAccountsUseCase(GiftAccountPersistencePort accountPort) {
+        return new DeleteGiftAccountsService(accountPort);
+    }
+
+    @Bean
+    public LinkProductToEggUseCase linkProductToEggUseCase(ProductEggMappingPersistencePort mappingPort) {
+        return new LinkProductToEggService(mappingPort);
+    }
+
+    @Bean
+    public DeleteProductEggMappingUseCase deleteProductEggMappingUseCase(ProductEggMappingPersistencePort mappingPort) {
+        return new DeleteProductEggMappingService(mappingPort);
+    }
 }

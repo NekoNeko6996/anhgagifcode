@@ -28,4 +28,8 @@ public interface EggJpaRepository extends JpaRepository<Eggs, String> {
     boolean existsByOrderIdAndGiftPoolIdAndEggType(@Param("orderId") String orderId, @Param("poolId") String poolId, @Param("eggType") int eggType);
 
     boolean existsByGiftPoolIdId(String poolId);
+
+    @Modifying
+    @Query("UPDATE Eggs e SET e.accountId = null WHERE e.accountId.id IN :accountIds")
+    void nullifyAccountIdIn(@Param("accountIds") List<String> accountIds);
 }
