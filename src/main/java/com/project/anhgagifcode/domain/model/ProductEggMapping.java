@@ -9,11 +9,11 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class ProductEggMapping {
-    private String id;
-    private String kvProductId;
-    private int eggType;      
-    private String eggTier;
+    private String id;            
+    private KiotvietProduct productCode;  
+    private int eggType;          
+    private GiftPool giftPoolId;   
+    private String eggTier;       
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private GiftPool giftPool;
 }

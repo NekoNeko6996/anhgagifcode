@@ -38,13 +38,6 @@ import java.util.Date;
     @NamedQuery(name = "GiftPools.findByCreatedAt", query = "SELECT g FROM GiftPools g WHERE g.createdAt = :createdAt")})
 public class GiftPools implements Serializable {
 
-    private static final long serialVersionUID = 1L;
-    @Id
-    @Basic(optional = false)
-    @NotNull
-    @Size(min = 1, max = 36)
-    @Column(name = "id")
-    private String id;
     @Basic(optional = false)
     @NotNull
     @Size(min = 1, max = 150)
@@ -60,6 +53,14 @@ public class GiftPools implements Serializable {
     @Column(name = "created_at")
     @Temporal(TemporalType.TIMESTAMP)
     private Date createdAt;
+
+    private static final long serialVersionUID = 1L;
+    @Id
+    @Basic(optional = false)
+    @NotNull
+    @Size(min = 1, max = 36)
+    @Column(name = "id")
+    private String id;
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "giftPoolId")
     private Collection<ProductEggMappings> productEggMappingsCollection;
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "giftPoolId")
@@ -97,13 +98,6 @@ public class GiftPools implements Serializable {
         this.poolName = poolName;
     }
 
-    public String getTier() {
-        return tier;
-    }
-
-    public void setTier(String tier) {
-        this.tier = tier;
-    }
 
     public Date getCreatedAt() {
         return createdAt;
@@ -163,6 +157,14 @@ public class GiftPools implements Serializable {
     @Override
     public String toString() {
         return "com.project.anhgagifcode.infrastructure.adapter.out.persistence.entity.GiftPools[ id=" + id + " ]";
+    }
+
+    public String getTier() {
+        return tier;
+    }
+
+    public void setTier(String tier) {
+        this.tier = tier;
     }
     
 }

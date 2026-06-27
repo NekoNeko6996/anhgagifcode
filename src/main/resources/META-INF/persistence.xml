@@ -14,6 +14,7 @@
     <class>com.project.anhgagifcode.infrastructure.adapter.out.persistence.entity.KiotvietOrders</class>
     <class>com.project.anhgagifcode.infrastructure.adapter.out.persistence.entity.Customers</class>
     <class>com.project.anhgagifcode.infrastructure.adapter.out.persistence.entity.KiotvietOrderItems</class>
+    <class>com.project.anhgagifcode.infrastructure.adapter.out.persistence.entity.KiotvietProducts</class>
     <properties>
       <property name="javax.persistence.jdbc.url" value="jdbc:mysql://localhost:9999/anhgagiftcode?zeroDateTimeBehavior=CONVERT_TO_NULL"/>
       <property name="javax.persistence.jdbc.user" value="root"/>

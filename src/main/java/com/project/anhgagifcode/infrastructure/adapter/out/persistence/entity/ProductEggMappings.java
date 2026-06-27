@@ -31,7 +31,6 @@ import java.util.Date;
 @NamedQueries({
     @NamedQuery(name = "ProductEggMappings.findAll", query = "SELECT p FROM ProductEggMappings p"),
     @NamedQuery(name = "ProductEggMappings.findById", query = "SELECT p FROM ProductEggMappings p WHERE p.id = :id"),
-    @NamedQuery(name = "ProductEggMappings.findByKvProductId", query = "SELECT p FROM ProductEggMappings p WHERE p.kvProductId = :kvProductId"),
     @NamedQuery(name = "ProductEggMappings.findByEggType", query = "SELECT p FROM ProductEggMappings p WHERE p.eggType = :eggType"),
     @NamedQuery(name = "ProductEggMappings.findByEggTier", query = "SELECT p FROM ProductEggMappings p WHERE p.eggTier = :eggTier"),
     @NamedQuery(name = "ProductEggMappings.findByCreatedAt", query = "SELECT p FROM ProductEggMappings p WHERE p.createdAt = :createdAt"),
@@ -45,11 +44,6 @@ public class ProductEggMappings implements Serializable {
     @Size(min = 1, max = 36)
     @Column(name = "id")
     private String id;
-    @Basic(optional = false)
-    @NotNull
-    @Size(min = 1, max = 100)
-    @Column(name = "kv_product_id")
-    private String kvProductId;
     @Basic(optional = false)
     @NotNull
     @Column(name = "egg_type")
@@ -70,6 +64,9 @@ public class ProductEggMappings implements Serializable {
     @JoinColumn(name = "gift_pool_id", referencedColumnName = "id")
     @ManyToOne(optional = false)
     private GiftPools giftPoolId;
+    @JoinColumn(name = "kv_product_id", referencedColumnName = "kv_product_id")
+    @ManyToOne(optional = false)
+    private KiotvietProducts kvProductId;
 
     public ProductEggMappings() {
     }
@@ -78,9 +75,8 @@ public class ProductEggMappings implements Serializable {
         this.id = id;
     }
 
-    public ProductEggMappings(String id, String kvProductId, int eggType, String eggTier, Date createdAt) {
+    public ProductEggMappings(String id, int eggType, String eggTier, Date createdAt) {
         this.id = id;
-        this.kvProductId = kvProductId;
         this.eggType = eggType;
         this.eggTier = eggTier;
         this.createdAt = createdAt;
@@ -92,14 +88,6 @@ public class ProductEggMappings implements Serializable {
 
     public void setId(String id) {
         this.id = id;
-    }
-
-    public String getKvProductId() {
-        return kvProductId;
-    }
-
-    public void setKvProductId(String kvProductId) {
-        this.kvProductId = kvProductId;
     }
 
     public int getEggType() {
@@ -140,6 +128,14 @@ public class ProductEggMappings implements Serializable {
 
     public void setGiftPoolId(GiftPools giftPoolId) {
         this.giftPoolId = giftPoolId;
+    }
+
+    public KiotvietProducts getKvProductId() {
+        return kvProductId;
+    }
+
+    public void setKvProductId(KiotvietProducts kvProductId) {
+        this.kvProductId = kvProductId;
     }
 
     @Override

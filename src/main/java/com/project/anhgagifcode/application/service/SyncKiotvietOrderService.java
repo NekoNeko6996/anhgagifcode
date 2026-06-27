@@ -137,12 +137,12 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
 
         for (ProductEggMapping mapping : mappings) {
             // CẬP NHẬT Ở ĐÂY: Thêm mapping.getEggType() vào logic check
-            if (!eggPort.existsByOrderIdAndPoolIdAndEggType(order.getId(), mapping.getGiftPool().getId(), mapping.getEggType())) {
+            if (!eggPort.existsByOrderIdAndPoolIdAndEggType(order.getId(), mapping.getGiftPoolId().getId(), mapping.getEggType())) {
 
                 Egg newEgg = Egg.builder()
                         .id(UUID.randomUUID().toString())
                         .order(order)
-                        .giftPool(mapping.getGiftPool())
+                        .giftPool(mapping.getGiftPoolId())
                         .eggType(mapping.getEggType()) // Sẽ đẻ ra 1 trứng loại 1 và 1 trứng loại 2 bình thường
                         .status("PENDING")
                         .createdAt(LocalDateTime.now())
