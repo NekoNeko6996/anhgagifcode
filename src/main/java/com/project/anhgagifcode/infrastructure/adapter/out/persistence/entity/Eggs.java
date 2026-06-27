@@ -8,6 +8,7 @@ import jakarta.persistence.Basic;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -71,13 +72,13 @@ public class Eggs implements Serializable {
     @Temporal(TemporalType.TIMESTAMP)
     private Date updatedAt;
     @JoinColumn(name = "order_id", referencedColumnName = "id")
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     private KiotvietOrders orderId;
     @JoinColumn(name = "account_id", referencedColumnName = "id")
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     private GiftAccounts accountId;
     @JoinColumn(name = "gift_pool_id", referencedColumnName = "id")
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     private GiftPools giftPoolId;
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "eggId")
     private Collection<EggOpeningLogs> eggOpeningLogsCollection;
