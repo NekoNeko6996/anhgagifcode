@@ -1,6 +1,7 @@
 package com.project.anhgagifcode.application.port.out;
 
 import com.project.anhgagifcode.domain.model.KiotvietOrder;
+import java.util.List;
 import java.util.Optional;
 
 public interface KiotvietOrderPersistencePort {
@@ -10,4 +11,6 @@ public interface KiotvietOrderPersistencePort {
 
     // Lưu đơn hàng (Cần lưu cả KiotvietOrder và danh sách KiotvietOrderItems bên trong)
     KiotvietOrder saveOrder(KiotvietOrder order);
+
+    List<KiotvietOrder> findAll();
 }

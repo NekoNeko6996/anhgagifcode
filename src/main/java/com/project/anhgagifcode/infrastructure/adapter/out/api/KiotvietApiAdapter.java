@@ -3,6 +3,7 @@ package com.project.anhgagifcode.infrastructure.adapter.out.api;
 import com.project.anhgagifcode.application.port.out.KiotvietApiPort;
 import com.project.anhgagifcode.domain.model.KiotvietOrder;
 import com.project.anhgagifcode.domain.model.KiotvietOrderItem;
+import com.project.anhgagifcode.domain.model.KiotvietProduct;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +15,7 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -50,7 +52,7 @@ public class KiotvietApiAdapter implements KiotvietApiPort {
             String token = getValidAccessToken();
             if (token == null) {
                 log.error("Không thể lấy Access Token từ KiotViet.");
-                return Optional.empty(); 
+                return Optional.empty();
             }
 
             // 1. SỬA ĐƯỜNG DẪN API (Dùng endpoint lấy chi tiết hóa đơn theo Code)
@@ -61,7 +63,7 @@ public class KiotvietApiAdapter implements KiotvietApiPort {
             headers.set("Retailer", retailer);
 
             HttpEntity<Void> entity = new HttpEntity<>(headers);
-            
+
             // 2. SỬA KIỂU PARSE DỮ LIỆU (Parse thẳng ra 1 Object KiotvietInvoice thay vì List)
             ResponseEntity<KiotvietInvoice> response = restTemplate.exchange(
                     url, HttpMethod.GET, entity, KiotvietInvoice.class);
@@ -70,7 +72,7 @@ public class KiotvietApiAdapter implements KiotvietApiPort {
                 // Đã tìm thấy đơn hàng, map dữ liệu sang Domain Model
                 return Optional.of(mapToDomain(response.getBody()));
             }
-            
+
             log.warn("Lấy API thành công nhưng dữ liệu rỗng đối với đơn: {}", orderCode);
             return Optional.empty();
 
@@ -88,6 +90,54 @@ public class KiotvietApiAdapter implements KiotvietApiPort {
         }
     }
 
+    @Override
+    public List<KiotvietProduct> fetchAllProductsFromKiotviet() {
+        List<KiotvietProduct> allProducts = new ArrayList<>();
+        String token = getValidAccessToken();
+        if (token == null) {
+            return allProducts;
+        }
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        headers.set("Retailer", retailer);
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+        int currentItem = 0;
+        int pageSize = 100;
+        boolean hasMore = true;
+
+        while (hasMore) {
+            String url = apiUrl + "/products?includeInventory=true&isActive=true&includePricebook=true&pageSize=" + pageSize + "&currentItem=" + currentItem;
+
+            // Sử dụng một DTO trung gian để hứng dữ liệu trả về từ API Kiot
+            ResponseEntity<KiotvietProductListResponse> response = restTemplate.exchange(
+                    url, HttpMethod.GET, entity, KiotvietProductListResponse.class);
+
+            if (response.getBody() != null && response.getBody().getData() != null) {
+                List<KiotvietProductData> data = response.getBody().getData();
+
+                // Map dữ liệu từ API sang Domain Model
+                for (KiotvietProductData item : data) {
+                    allProducts.add(KiotvietProduct.builder()
+                            .kvProductId(item.getId())
+                            .name(item.getName())
+                            .fullName(item.getFullName())
+                            .basePrice(item.getBasePrice())
+                            .imageUrl(item.getImages() != null && !item.getImages().isEmpty() ? item.getImages().get(0) : null)
+                            .lastSyncedAt(LocalDateTime.now())
+                            .build());
+                }
+
+                currentItem += data.size();
+                hasMore = (data.size() == pageSize); // Nếu lấy đủ pageSize thì gọi tiếp trang sau
+            } else {
+                hasMore = false;
+            }
+        }
+        return allProducts;
+    }
+
     /**
      * Logic lấy và quản lý Access Token của KiotViet
      */
@@ -96,7 +146,7 @@ public class KiotvietApiAdapter implements KiotvietApiPort {
         // Cấp lại token mới nếu token cũ chưa có hoặc sẽ hết hạn trong 5 phút tới (300,000 ms)
         if (cachedAccessToken == null || currentTime >= (tokenExpiryTime - 300000)) {
             log.info("Access Token hết hạn hoặc chưa có, đang lấy mới từ KiotViet...");
-            
+
             String tokenUrl = "https://id.kiotviet.vn/connect/token"; // URL chuẩn lấy token của KiotViet
 
             HttpHeaders headers = new HttpHeaders();
@@ -133,16 +183,21 @@ public class KiotvietApiAdapter implements KiotvietApiPort {
      * Chuyển đổi dữ liệu từ API KiotViet sang Domain Model của hệ thống
      */
     private KiotvietOrder mapToDomain(KiotvietInvoice invoice) {
-        
+
         // Tùy biến trạng thái giao hàng dựa trên status của KiotViet
         // KiotViet invoiceDelivery Status
         String mappedDeliveryStatus = "Chưa rõ";
         switch (invoice.invoiceDelivery.status) {
-            case 1 -> mappedDeliveryStatus = "Đang chuẩn bị hàng";
-            case 2 -> mappedDeliveryStatus = "Đang giao hàng";
-            case 3 -> mappedDeliveryStatus = "Đã giao hàng";
-            case 4 -> mappedDeliveryStatus = "Đang chuyển hoàn";
-            case 5 -> mappedDeliveryStatus = "Đã chuyển hoàn";
+            case 1 ->
+                mappedDeliveryStatus = "Đang chuẩn bị hàng";
+            case 2 ->
+                mappedDeliveryStatus = "Đang giao hàng";
+            case 3 ->
+                mappedDeliveryStatus = "Đã giao hàng";
+            case 4 ->
+                mappedDeliveryStatus = "Đang chuyển hoàn";
+            case 5 ->
+                mappedDeliveryStatus = "Đã chuyển hoàn";
             default -> {
             }
         }
@@ -158,11 +213,11 @@ public class KiotvietApiAdapter implements KiotvietApiPort {
         if (invoice.getInvoiceDetails() != null) {
             List<KiotvietOrderItem> items = invoice.getInvoiceDetails().stream()
                     .map(detail -> KiotvietOrderItem.builder()
-                            .id(java.util.UUID.randomUUID().toString())
-                            .kvProductId(String.valueOf(detail.getProductId()))
-                            .quantity((int) detail.getQuantity())
-                            .lastSyncedAt(LocalDateTime.now())
-                            .build())
+                    .id(java.util.UUID.randomUUID().toString())
+                    .kvProductId(String.valueOf(detail.getProductId()))
+                    .quantity((int) detail.getQuantity())
+                    .lastSyncedAt(LocalDateTime.now())
+                    .build())
                     .collect(Collectors.toList());
             order.setOrderItems(items);
         }
@@ -173,9 +228,9 @@ public class KiotvietApiAdapter implements KiotvietApiPort {
     /* =================================================================================
      * CÁC LỚP DTO NỘI BỘ DÙNG ĐỂ MAP JSON TỪ API KIOTVIET (Theo tài liệu Postman)
      * ================================================================================= */
-
     @Data
     private static class KiotvietTokenResponse {
+
         private String access_token;
         private int expires_in;
         private String token_type;
@@ -183,31 +238,51 @@ public class KiotvietApiAdapter implements KiotvietApiPort {
 
     @Data
     private static class KiotvietInvoiceResponse {
+
         private List<KiotvietInvoice> data;
     }
 
     @Data
     private static class KiotvietInvoice {
+
         private long id;
         private String code;
         private String customerCode;
         private String customerName;
-        private int status; 
+        private int status;
         private KiotVietInvoiceDelivery invoiceDelivery;
         private List<KiotvietInvoiceDetail> invoiceDetails;
     }
 
     @Data
     private static class KiotvietInvoiceDetail {
+
         private long productId;
         private String productCode;
         private double quantity;
     }
-    
-    @Data 
+
+    @Data
     private static class KiotVietInvoiceDelivery {
+
         private String deliveryCode;
         private int status;
         private String statusValue;
+    }
+    
+    @Data
+    public static class KiotvietProductListResponse {
+        private int total;
+        private int pageSize;
+        private List<KiotvietProductData> data;
+    }
+
+    @Data
+    public static class KiotvietProductData {
+        private long id;
+        private String name;
+        private String fullName;
+        private Double basePrice;
+        private List<String> images;
     }
 }

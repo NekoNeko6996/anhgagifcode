@@ -17,4 +17,7 @@ public interface GiftAccountJpaRepository extends JpaRepository<GiftAccounts, St
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT g FROM GiftAccounts g JOIN PoolAccountMappings p ON g.id = p.accountId.id WHERE p.poolId.id = :poolId AND g.status = 'AVAILABLE'")
     Page<GiftAccounts> findAvailableAccountForUpdate(@Param("poolId") String poolId, Pageable pageable);
+
+    @Query("SELECT g FROM GiftAccounts g JOIN PoolAccountMappings p ON g.id = p.accountId.id WHERE p.poolId.id = :poolId")
+    java.util.List<GiftAccounts> findAccountsByPoolId(@Param("poolId") String poolId);
 }

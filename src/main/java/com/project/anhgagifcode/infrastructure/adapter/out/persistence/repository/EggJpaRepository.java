@@ -26,4 +26,6 @@ public interface EggJpaRepository extends JpaRepository<Eggs, String> {
 
     @Query("SELECT CASE WHEN COUNT(e) > 0 THEN TRUE ELSE FALSE END FROM Eggs e WHERE e.orderId.id = :orderId AND e.giftPoolId.id = :poolId AND e.eggType = :eggType")
     boolean existsByOrderIdAndGiftPoolIdAndEggType(@Param("orderId") String orderId, @Param("poolId") String poolId, @Param("eggType") int eggType);
+
+    boolean existsByGiftPoolIdId(String poolId);
 }

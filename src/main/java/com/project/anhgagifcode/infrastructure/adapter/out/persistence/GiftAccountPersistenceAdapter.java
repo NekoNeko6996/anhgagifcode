@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
@@ -49,5 +50,21 @@ public class GiftAccountPersistenceAdapter implements GiftAccountPersistencePort
                 .map(mapper::toEntity)
                 .toList();
         repository.saveAll(entities);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<GiftAccount> findAll() {
+        return repository.findAll().stream()
+                .map(mapper::toDomain)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<GiftAccount> findAccountsByPoolId(String poolId) {
+        return repository.findAccountsByPoolId(poolId).stream()
+                .map(mapper::toDomain)
+                .toList();
     }
 }

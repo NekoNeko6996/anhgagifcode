@@ -7,6 +7,7 @@ import com.project.anhgagifcode.infrastructure.adapter.out.persistence.mapper.Eg
 import com.project.anhgagifcode.infrastructure.adapter.out.persistence.repository.EggJpaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -46,5 +47,13 @@ public class EggPersistenceAdapter implements EggPersistencePort {
     @Override
     public boolean existsByOrderIdAndPoolIdAndEggType(String orderId, String poolId, int eggType) {
         return repository.existsByOrderIdAndGiftPoolIdAndEggType(orderId, poolId, eggType);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Egg> findAll() {
+        return repository.findAll().stream()
+                .map(mapper::toDomain)
+                .collect(Collectors.toList());
     }
 }

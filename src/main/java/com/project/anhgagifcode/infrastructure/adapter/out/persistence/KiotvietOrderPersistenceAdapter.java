@@ -8,8 +8,11 @@ import com.project.anhgagifcode.infrastructure.adapter.out.persistence.repositor
 import com.project.anhgagifcode.infrastructure.adapter.out.persistence.repository.KiotvietOrderJpaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -35,5 +38,13 @@ public class KiotvietOrderPersistenceAdapter implements KiotvietOrderPersistence
 
         KiotvietOrders savedEntity = repository.save(entity);
         return mapper.toDomain(savedEntity);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<KiotvietOrder> findAll() {
+        return repository.findAll().stream()
+                .map(mapper::toDomain)
+                .collect(Collectors.toList());
     }
 }

@@ -24,4 +24,12 @@ public class ProductEggMappingPersistenceAdapter implements ProductEggMappingPer
                 .map(mapper::toDomain)
                 .collect(Collectors.toList());
     }
+
+    @Override
+    public List<ProductEggMapping> findAll() {
+        return repository.findAll()
+                .stream()
+                .map(mapper::toDomain)
+                .collect(Collectors.toList());
+    }
 }

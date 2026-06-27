@@ -21,4 +21,6 @@ public interface EggPersistencePort {
     
     // Kiểm tra xem đơn hàng này đã từng sinh trứng thuộc Pool này chưa (Tránh duplicate)
     boolean existsByOrderIdAndPoolIdAndEggType(String orderId, String poolId, int eggType);
+
+    List<Egg> findAll();
 }

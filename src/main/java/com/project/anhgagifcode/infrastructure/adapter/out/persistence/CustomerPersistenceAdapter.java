@@ -8,7 +8,9 @@ import com.project.anhgagifcode.infrastructure.adapter.out.persistence.repositor
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -28,5 +30,12 @@ public class CustomerPersistenceAdapter implements CustomerPersistencePort {
         Customers entity = mapper.toEntity(customer);
         Customers savedEntity = repository.save(entity);
         return mapper.toDomain(savedEntity);
+    }
+
+    @Override
+    public List<Customer> findAll() {
+        return repository.findAll().stream()
+                .map(mapper::toDomain)
+                .collect(Collectors.toList());
     }
 }

@@ -18,4 +18,8 @@ public interface GiftAccountPersistencePort {
     GiftAccount save(GiftAccount account);
 
     void saveAll(List<GiftAccount> accounts);
+
+    List<GiftAccount> findAll();
+
+    List<GiftAccount> findAccountsByPoolId(String poolId);
 }
