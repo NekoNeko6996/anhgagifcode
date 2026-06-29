@@ -30,7 +30,7 @@ public class GetKiotvietProductsService implements GetKiotvietProductsUseCase {
         Map<Long, List<ProductEggMapping>> mappingsByProductId = allMappings.stream()
                 .filter(m -> m.getProductCode() != null && m.getProductCode().getKvProductId() != null)
                 .collect(Collectors.groupingBy(m -> m.getProductCode().getKvProductId()));
-
+      
         return products.stream()
                 .map(p -> {
                     List<ProductEggMapping> mappings = mappingsByProductId.getOrDefault(p.getKvProductId(), Collections.emptyList());

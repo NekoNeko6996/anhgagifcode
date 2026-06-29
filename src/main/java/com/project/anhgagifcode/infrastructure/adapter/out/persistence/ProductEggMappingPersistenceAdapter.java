@@ -31,7 +31,26 @@ public class ProductEggMappingPersistenceAdapter implements ProductEggMappingPer
     @Override
     @Transactional(readOnly = true)
     public List<ProductEggMapping> loadMappingsByProductIds(List<String> kvProductIds) {
-        return repository.findByKvProductIdIn(kvProductIds)
+        if (kvProductIds == null || kvProductIds.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        List<Long> longIds = kvProductIds.stream()
+                .filter(id -> id != null && !id.trim().isEmpty())
+                .map(id -> {
+                    try {
+                        return Long.parseLong(id.trim());
+                    } catch (NumberFormatException e) {
+                        return null;
+                    }
+                })
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toList());
+
+        if (longIds.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+
+        return repository.findByKvProductIdIn(longIds)
                 .stream()
                 .map(mapper::toDomain)
                 .collect(Collectors.toList());
