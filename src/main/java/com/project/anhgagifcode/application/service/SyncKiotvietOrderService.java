@@ -40,6 +40,10 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
             KiotvietOrder apiOrder = apiPort.fetchOrderFromKiotviet(orderCode)
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mã đơn hàng này trên hệ thống KiotViet."));
 
+            if (apiOrder.getCustomerCode() == null || apiOrder.getCustomerCode().trim().isEmpty() || "KHACH_LE".equalsIgnoreCase(apiOrder.getCustomerCode().trim())) {
+                throw new BusinessRuleViolationException("Thiếu thông tin khách hàng");
+            }
+
             // Process Customer Logic (success count, return streak, warning, banned)
             customer = processCustomerLogic(apiOrder.getCustomerCode(), apiOrder.getDeliveryStatus(), Optional.empty());
             
@@ -57,6 +61,9 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
             generateEggsIfNeeded(currentOrder);
         } else {
             currentOrder = existingOrderOpt.get();
+            if (currentOrder.getCustomerCode() == null || currentOrder.getCustomerCode().trim().isEmpty() || "KHACH_LE".equalsIgnoreCase(currentOrder.getCustomerCode().trim())) {
+                throw new BusinessRuleViolationException("Thiếu thông tin khách hàng");
+            }
             // Sync with API if cache expired (> 5 minutes)
             currentOrder = syncOrderIfNeeded(currentOrder);
             
@@ -85,10 +92,14 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
     }
 
     private Customer processCustomerLogic(String customerCode, String newStatus, Optional<KiotvietOrder> existingOrderOpt) {
-        Customer customer = customerPort.loadByCustomerCode(customerCode).orElseGet(() -> {
+        if (customerCode == null || customerCode.trim().isEmpty()) {
+            customerCode = "KHACH_LE";
+        }
+        final String finalCustomerCode = customerCode.trim();
+        Customer customer = customerPort.loadByCustomerCode(finalCustomerCode).orElseGet(() -> {
             Customer newCus = new Customer();
             newCus.setId(UUID.randomUUID().toString());
-            newCus.setCustomerCode(customerCode);
+            newCus.setCustomerCode(finalCustomerCode);
             newCus.setStatus("NEW");
             newCus.setSuccessCount(0);
             newCus.setReturnStreak(0);
@@ -141,6 +152,10 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
         // Fetch fresh order details from Kiotviet API
         KiotvietOrder apiOrder = apiPort.fetchOrderFromKiotviet(order.getOrderCode())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mã đơn hàng này trên KiotViet."));
+
+        if (apiOrder.getCustomerCode() == null || apiOrder.getCustomerCode().trim().isEmpty() || "KHACH_LE".equalsIgnoreCase(apiOrder.getCustomerCode().trim())) {
+            throw new BusinessRuleViolationException("Thiếu thông tin khách hàng");
+        }
 
         // Determine transitions
         boolean wasReturnedBefore = "Đang chuyển hoàn".equalsIgnoreCase(order.getDeliveryStatus()) 
@@ -220,6 +235,13 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
     private void generateEggsIfNeeded(KiotvietOrder order) {
         List<Egg> existingEggs = eggPort.loadEggsByOrderId(order.getId());
         if (!existingEggs.isEmpty()) {
+            return;
+        }
+
+        // Chỉ khi đơn hàng có trạng thái vận chuyển là "Giao thành công" (hoặc "Đã giao hàng") mới phát trứng
+        String deliveryStatus = order.getDeliveryStatus();
+        boolean isDelivered = "Đã giao hàng".equalsIgnoreCase(deliveryStatus) || "Giao thành công".equalsIgnoreCase(deliveryStatus);
+        if (!isDelivered) {
             return;
         }
 

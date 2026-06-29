@@ -52,7 +52,7 @@ class ClaimEggServiceTest {
                 .id("order-uuid")
                 .orderCode("OD100")
                 .customerCode("CUS88")
-                .deliveryStatus("Đang giao hàng")
+                .deliveryStatus("Đã giao hàng")
                 .lastSyncedAt(LocalDateTime.now())
                 .createdAt(LocalDateTime.now().minusDays(20))
                 .build();
@@ -146,7 +146,7 @@ class ClaimEggServiceTest {
     void claimEggReward_Egg2_NotAbsoluteSuccess_ThrowsException() {
         validEgg.setEggType(2);
         validEgg.setHatchAt(LocalDateTime.now().minusMinutes(5)); // Cooldown finished
-        // Order is still "Đang giao hàng" (Not "Đã giao hàng")
+        validOrder.setCreatedAt(LocalDateTime.now()); // Make it recent so it's not absolute success
         when(eggPort.loadEggForUpdate("egg-uuid")).thenReturn(Optional.of(validEgg));
         when(customerPort.loadByCustomerCode("CUS88")).thenReturn(Optional.of(cleanCustomer));
 
@@ -155,6 +155,18 @@ class ClaimEggServiceTest {
         });
 
         assertTrue(exception.getMessage().contains("chưa đạt trạng thái thành công tuyệt đối"));
+    }
+
+    @Test
+    void claimEggReward_OrderNotDelivered_ThrowsException() {
+        validOrder.setDeliveryStatus("Đang giao hàng");
+        when(eggPort.loadEggForUpdate("egg-uuid")).thenReturn(Optional.of(validEgg));
+
+        BusinessRuleViolationException exception = assertThrows(BusinessRuleViolationException.class, () -> {
+            claimService.claimEggReward("egg-uuid", "127.0.0.1");
+        });
+
+        assertEquals("Đơn hàng chưa được giao thành công.", exception.getMessage());
     }
 
     @Test

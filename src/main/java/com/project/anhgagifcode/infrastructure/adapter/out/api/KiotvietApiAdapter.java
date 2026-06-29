@@ -204,7 +204,7 @@ public class KiotvietApiAdapter implements KiotvietApiPort {
 
         KiotvietOrder order = KiotvietOrder.builder()
                 .orderCode(invoice.getCode())
-                .customerCode(invoice.getCustomerCode() != null ? invoice.getCustomerCode() : "KHACH_LE")
+                .customerCode(invoice.getCustomerCode() != null && !invoice.getCustomerCode().trim().isEmpty() ? invoice.getCustomerCode().trim() : "KHACH_LE")
                 .deliveryStatus(mappedDeliveryStatus)
                 .lastSyncedAt(LocalDateTime.now())
                 .createdAt(LocalDateTime.now())

@@ -49,7 +49,7 @@ class SyncKiotvietOrderServiceTest {
                 .id("order-id")
                 .orderCode("OD123")
                 .customerCode("CUS99")
-                .deliveryStatus("Đang chuẩn bị hàng")
+                .deliveryStatus("Đã giao hàng")
                 .lastSyncedAt(LocalDateTime.now())
                 .createdAt(LocalDateTime.now())
                 .orderItems(List.of(
@@ -105,6 +105,52 @@ class SyncKiotvietOrderServiceTest {
                 .eggType(2)
                 .giftPoolId(poolA)
                 .build();
+    }
+
+    @Test
+    void syncAndGetOrderDetails_GuestCustomer_FirstTimeSync_ThrowsException() {
+        KiotvietOrder guestOrder = KiotvietOrder.builder()
+                .id("order-guest")
+                .orderCode("OD-GUEST")
+                .customerCode("KHACH_LE")
+                .deliveryStatus("Đang chuẩn bị hàng")
+                .build();
+        when(orderPort.loadByOrderCode("OD-GUEST")).thenReturn(Optional.empty());
+        when(apiPort.fetchOrderFromKiotviet("OD-GUEST")).thenReturn(Optional.of(guestOrder));
+
+        BusinessRuleViolationException exception = assertThrows(BusinessRuleViolationException.class, () -> {
+            syncService.syncAndGetOrderDetails("OD-GUEST");
+        });
+
+        assertEquals("Thiếu thông tin khách hàng", exception.getMessage());
+    }
+
+    @Test
+    void syncAndGetOrderDetails_GuestCustomer_ExistingOrder_ThrowsException() {
+        KiotvietOrder guestOrder = KiotvietOrder.builder()
+                .id("order-guest")
+                .orderCode("OD-GUEST")
+                .customerCode("")
+                .deliveryStatus("Đang chuẩn bị hàng")
+                .build();
+        when(orderPort.loadByOrderCode("OD-GUEST")).thenReturn(Optional.of(guestOrder));
+
+        BusinessRuleViolationException exception = assertThrows(BusinessRuleViolationException.class, () -> {
+            syncService.syncAndGetOrderDetails("OD-GUEST");
+        });
+
+        assertEquals("Thiếu thông tin khách hàng", exception.getMessage());
+    }
+
+    @Test
+    void syncAndGetOrderDetails_OrderNotDelivered_NoEggsGenerated() {
+        mockOrder.setDeliveryStatus("Đang chuẩn bị hàng");
+        when(orderPort.loadByOrderCode("OD123")).thenReturn(Optional.of(mockOrder));
+        when(customerPort.loadByCustomerCode("CUS99")).thenReturn(Optional.of(cleanCustomer));
+
+        syncService.syncAndGetOrderDetails("OD123");
+
+        verify(eggPort, never()).saveEgg(any(Egg.class));
     }
 
     @Test

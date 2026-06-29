@@ -40,6 +40,13 @@ public class ClaimEggService implements ClaimEggUseCase {
         // 2. Đồng bộ trạng thái đơn hàng thời gian thực nếu cache quá hạn 5 phút
         KiotvietOrder order = syncOrderIfNeeded(egg.getOrder());
 
+        // 2.5 Kiểm tra đơn hàng phải giao thành công mới được mở trứng
+        String deliveryStatus = order.getDeliveryStatus();
+        boolean isDelivered = "Đã giao hàng".equalsIgnoreCase(deliveryStatus) || "Giao thành công".equalsIgnoreCase(deliveryStatus);
+        if (!isDelivered) {
+            throw new BusinessRuleViolationException("Đơn hàng chưa được giao thành công.");
+        }
+
         // 3. Load thông tin khách hàng mới nhất
         Customer customer = customerPort.loadByCustomerCode(order.getCustomerCode())
                 .orElseThrow(() -> new ResourceNotFoundException("Lỗi dữ liệu khách hàng."));
