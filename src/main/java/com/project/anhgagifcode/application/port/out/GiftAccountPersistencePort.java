@@ -12,6 +12,9 @@ public interface GiftAccountPersistencePort {
     // Dùng OFFSET để pick ngẫu nhiên 1 Account và LOCK nó lại (Pessimistic Lock)
     Optional<GiftAccount> pickRandomAvailableAccountForUpdate(String poolId, int offset);
 
+    // Dùng native query SKIP LOCKED để khóa và bốc quà nhanh, tránh deadlock và redundant count
+    Optional<GiftAccount> pickAvailableAccountForUpdateSkipLocked(String poolId);
+
     // Cập nhật trạng thái Account sau khi đã trao cho khách
     void updateAccount(GiftAccount account);
 

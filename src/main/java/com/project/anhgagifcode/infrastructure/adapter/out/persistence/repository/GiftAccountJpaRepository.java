@@ -18,6 +18,9 @@ public interface GiftAccountJpaRepository extends JpaRepository<GiftAccounts, St
     @Query("SELECT g FROM GiftAccounts g JOIN PoolAccountMappings p ON g.id = p.accountId.id WHERE p.poolId.id = :poolId AND g.status = 'AVAILABLE'")
     Page<GiftAccounts> findAvailableAccountForUpdate(@Param("poolId") String poolId, Pageable pageable);
 
+    @Query(value = "SELECT g.* FROM gift_accounts g JOIN pool_account_mappings p ON g.id = p.account_id WHERE p.pool_id = :poolId AND g.status = 'AVAILABLE' LIMIT 1 FOR UPDATE", nativeQuery = true)
+    java.util.Optional<GiftAccounts> findAvailableAccountForUpdateSkipLocked(@Param("poolId") String poolId);
+
     @Query("SELECT g FROM GiftAccounts g JOIN PoolAccountMappings p ON g.id = p.accountId.id WHERE p.poolId.id = :poolId")
     java.util.List<GiftAccounts> findAccountsByPoolId(@Param("poolId") String poolId);
 

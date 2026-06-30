@@ -13,6 +13,8 @@ public interface EggPersistencePort {
     // Lưu ý: Cần hỗ trợ Pessimistic Lock ở tầng Adapter để chống Race Condition
     Optional<Egg> loadEggForUpdate(String eggId);
     
+    Optional<Egg> findById(String id);
+    
     // Lấy toàn bộ trứng của một đơn hàng (Dùng để hiển thị cho UI)
     List<Egg> loadEggsByOrderId(String orderId);
     

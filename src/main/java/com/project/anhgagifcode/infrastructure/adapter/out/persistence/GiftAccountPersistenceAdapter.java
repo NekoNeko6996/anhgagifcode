@@ -40,6 +40,11 @@ public class GiftAccountPersistenceAdapter implements GiftAccountPersistencePort
     }
 
     @Override
+    public Optional<GiftAccount> pickAvailableAccountForUpdateSkipLocked(String poolId) {
+        return repository.findAvailableAccountForUpdateSkipLocked(poolId).map(mapper::toDomain);
+    }
+
+    @Override
     public void updateAccount(GiftAccount account) {
         repository.save(mapper.toEntity(account));
     }

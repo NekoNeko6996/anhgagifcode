@@ -1,220 +1,149 @@
 package com.project.anhgagifcode.application.service;
 
 import com.project.anhgagifcode.application.port.in.ClaimEggUseCase;
+import com.project.anhgagifcode.application.port.in.SyncKiotvietOrderUseCase;
 import com.project.anhgagifcode.application.port.in.dto.ClaimEggResponse;
 import com.project.anhgagifcode.application.port.out.*;
 import com.project.anhgagifcode.domain.exception.BusinessRuleViolationException;
 import com.project.anhgagifcode.domain.exception.ResourceNotFoundException;
 import com.project.anhgagifcode.domain.model.*;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Random;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
-@RequiredArgsConstructor
 public class ClaimEggService implements ClaimEggUseCase {
 
     private final EggPersistencePort eggPort;
     private final GiftAccountPersistencePort accountPort;
     private final EggOpeningLogPersistencePort logPort;
     private final KiotvietOrderPersistencePort orderPort;
-    private final KiotvietApiPort apiPort;
     private final CustomerPersistencePort customerPort;
-    
-    private final Random random = new Random();
+    private final SyncKiotvietOrderUseCase syncOrderUseCase;
+    private final TransactionTemplate transactionTemplate;
 
-    @Override
-    @Transactional
-    public ClaimEggResponse claimEggReward(String eggId, String ipAddress) {
-        
-        // 1. Load và Khóa Trứng (Lock For Update)
-        Egg egg = eggPort.loadEggForUpdate(eggId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy trứng hợp lệ."));
-
-        // 2. Đồng bộ trạng thái đơn hàng thời gian thực nếu cache quá hạn 5 phút
-        KiotvietOrder order = syncOrderIfNeeded(egg.getOrder());
-
-        // 2.5 Kiểm tra đơn hàng phải giao thành công mới được mở trứng
-        String deliveryStatus = order.getDeliveryStatus();
-        boolean isDelivered = "Đã giao hàng".equalsIgnoreCase(deliveryStatus) || "Giao thành công".equalsIgnoreCase(deliveryStatus);
-        if (!isDelivered) {
-            throw new BusinessRuleViolationException("Đơn hàng chưa được giao thành công.");
-        }
-
-        // 3. Load thông tin khách hàng mới nhất
-        Customer customer = customerPort.loadByCustomerCode(order.getCustomerCode())
-                .orElseThrow(() -> new ResourceNotFoundException("Lỗi dữ liệu khách hàng."));
-
-        // 4. Kiểm tra trạng thái cấm (BANNED)
-        if ("BANNED".equals(customer.getStatus())) {
-            throw new BusinessRuleViolationException("Tài khoản bị khóa do vi phạm chính sách");
-        }
-
-        // 5. Kiểm tra trạng thái trứng
-        if ("CLAIMED".equals(egg.getStatus()) || "CANCELLED".equals(egg.getStatus())) {
-            throw new BusinessRuleViolationException("Trứng này đã được mở hoặc bị hủy.");
-        }
-
-        // 6. Kiểm tra điều kiện thời gian ấp (Hatching Cooldown)
-        boolean inHatchCooldown = egg.getHatchAt() != null && LocalDateTime.now().isBefore(egg.getHatchAt());
-        if (inHatchCooldown) {
-            throw new BusinessRuleViolationException("Trứng đang ấp, chưa đến thời gian mở.");
-        }
-
-        // 7. Kiểm tra trạng thái đơn hàng đối soát (Absolute Success)
-        boolean isClean = customer.getReturnStreak() == 0;
-        if (egg.getEggType() == 1 && isClean) {
-            // Đối với trứng số 1 của khách hàng AN TOÀN: Chỉ cần đơn hàng không hoàn trả
-            boolean isReturned = "Đang chuyển hoàn".equalsIgnoreCase(order.getDeliveryStatus()) 
-                    || "Đã chuyển hoàn".equalsIgnoreCase(order.getDeliveryStatus());
-            if (isReturned) {
-                throw new BusinessRuleViolationException("Đơn hàng này đã bị hoàn/trả.");
-            }
-        } else {
-            // Trứng số 2 hoặc trứng số 1 của khách hàng CẢNH CÁO: Phải đạt trạng thái thành công tuyệt đối
-            if (!isAbsoluteSuccess(order)) {
-                throw new BusinessRuleViolationException("Đơn hàng chưa đạt trạng thái thành công tuyệt đối hoặc chưa đủ 15 ngày.");
-            }
-        }
-
-        // 8. Đếm số lượng quà trong Kho
-        String poolId = egg.getGiftPool().getId();
-        long availableCount = accountPort.countAvailableAccountsByPoolId(poolId);
-        
-        if (availableCount == 0) {
-            throw new BusinessRuleViolationException("Kho quà hiện tại đã hết, vui lòng quay lại sau.");
-        }
-
-        // 9. Bốc Quà (Lock For Update GiftAccount)
-        int randomOffset = random.nextInt((int) availableCount);
-        GiftAccount assignedAccount = accountPort.pickRandomAvailableAccountForUpdate(poolId, randomOffset)
-                .orElseThrow(() -> new BusinessRuleViolationException("Lỗi hệ thống khi bốc quà, vui lòng thử lại."));
-
-        // 10. Cập nhật trạng thái tài khoản quà tặng
-        assignedAccount.setStatus("ASSIGNED");
-        assignedAccount.setAssignedAt(LocalDateTime.now());
-        accountPort.updateAccount(assignedAccount);
-
-        // 11. Cập nhật thông tin trứng
-        egg.setStatus("CLAIMED");
-        egg.setAccount(assignedAccount);
-        eggPort.saveEgg(egg);
-
-        // 12. Ghi Log hệ thống
-        EggOpeningLog logEntry = EggOpeningLog.builder()
-                .id(UUID.randomUUID().toString())
-                .eggId(egg.getId())
-                .accountId(assignedAccount.getId())
-                .actionType("CLAIM_REWARD")
-                .triggeredBy("USER_IP")
-                .ipAddress(ipAddress)
-                .createdAt(LocalDateTime.now())
-                .build();
-        logPort.saveLog(logEntry);
-
-        // 13. Xử lý điều kiện Ân xá (Reset Streak) cho khách hàng WARNING
-        if (customer.getReturnStreak() == 1) {
-            processAmnesty(customer);
-        }
-
-        return ClaimEggResponse.builder()
-                .username(assignedAccount.getUsername())
-                .password(assignedAccount.getPassword())
-                .platform(assignedAccount.getPlatform())
-                .message("Chúc mừng! Bạn đã mở trứng thành công.")
-                .build();
+    public ClaimEggService(
+            EggPersistencePort eggPort,
+            GiftAccountPersistencePort accountPort,
+            EggOpeningLogPersistencePort logPort,
+            KiotvietOrderPersistencePort orderPort,
+            CustomerPersistencePort customerPort,
+            SyncKiotvietOrderUseCase syncOrderUseCase,
+            PlatformTransactionManager transactionManager) {
+        this.eggPort = eggPort;
+        this.accountPort = accountPort;
+        this.logPort = logPort;
+        this.orderPort = orderPort;
+        this.customerPort = customerPort;
+        this.syncOrderUseCase = syncOrderUseCase;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
-    private KiotvietOrder syncOrderIfNeeded(KiotvietOrder order) {
-        if (order.getLastSyncedAt() != null && order.getLastSyncedAt().plusMinutes(5).isAfter(LocalDateTime.now())) {
-            return order;
-        }
+    @Override
+    public ClaimEggResponse claimEggReward(String eggId, String ipAddress) {
+        // 1. Tải thông tin trứng không khóa (Read-Only) để lấy đơn hàng
+        Egg initialEgg = eggPort.findById(eggId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy trứng hợp lệ."));
 
-        log.info("Đang đồng bộ lại đơn hàng {} do quá hạn 5 phút cache.", order.getOrderCode());
+        // 2. Đồng bộ trạng thái đơn hàng thời gian thực ngoài Transaction nếu quá hạn 5 phút cache
+        KiotvietOrder syncedOrder = syncOrderUseCase.syncOrderIfNeeded(initialEgg.getOrder());
 
-        // Fetch fresh order details from Kiotviet API
-        KiotvietOrder apiOrder = apiPort.fetchOrderFromKiotviet(order.getOrderCode())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mã đơn hàng này trên KiotViet."));
+        // 3. Thực hiện bốc quà và cập nhật trạng thái trong Transaction
+        return transactionTemplate.execute(status -> {
+            // 3.1 Load và Khóa Trứng (Lock For Update)
+            Egg egg = eggPort.loadEggForUpdate(eggId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy trứng hợp lệ."));
 
-        // Determine transitions
-        boolean wasReturnedBefore = "Đang chuyển hoàn".equalsIgnoreCase(order.getDeliveryStatus()) 
-                || "Đã chuyển hoàn".equalsIgnoreCase(order.getDeliveryStatus());
-        boolean isReturnedNow = "Đang chuyển hoàn".equalsIgnoreCase(apiOrder.getDeliveryStatus()) 
-                || "Đã chuyển hoàn".equalsIgnoreCase(apiOrder.getDeliveryStatus());
+            // Đảm bảo trứng tham chiếu tới order đã được đồng bộ mới nhất
+            egg.setOrder(syncedOrder);
 
-        boolean wasDeliveredBefore = "Đã giao hàng".equalsIgnoreCase(order.getDeliveryStatus())
-                || "Giao thành công".equalsIgnoreCase(order.getDeliveryStatus());
-        boolean isDeliveredNow = "Đã giao hàng".equalsIgnoreCase(apiOrder.getDeliveryStatus())
-                || "Giao thành công".equalsIgnoreCase(apiOrder.getDeliveryStatus());
-
-        // Update delivery status and updatedAt
-        order.setDeliveryStatus(apiOrder.getDeliveryStatus());
-        if ("Đã giao hàng".equalsIgnoreCase(apiOrder.getDeliveryStatus())) {
-            if (order.getUpdatedAt() == null || !wasDeliveredBefore) {
-                order.setUpdatedAt(LocalDateTime.now());
+            // 3.2 Kiểm tra đơn hàng phải giao thành công mới được mở trứng
+            String deliveryStatus = syncedOrder.getDeliveryStatus();
+            boolean isDelivered = "Đã giao hàng".equalsIgnoreCase(deliveryStatus) || "Giao thành công".equalsIgnoreCase(deliveryStatus);
+            if (!isDelivered) {
+                throw new BusinessRuleViolationException("Đơn hàng chưa được giao thành công.");
             }
-        } else {
-            order.setUpdatedAt(LocalDateTime.now());
-        }
-        order.setLastSyncedAt(LocalDateTime.now());
 
-        // Update items if any
-        if (apiOrder.getOrderItems() != null) {
-            order.setOrderItems(apiOrder.getOrderItems());
-        }
+            // 3.3 Load thông tin khách hàng mới nhất
+            Customer customer = customerPort.loadByCustomerCode(syncedOrder.getCustomerCode())
+                    .orElseThrow(() -> new ResourceNotFoundException("Lỗi dữ liệu khách hàng."));
 
-        KiotvietOrder updatedOrder = orderPort.saveOrder(order);
+            // 3.4 Kiểm tra trạng thái cấm (BANNED)
+            if ("BANNED".equals(customer.getStatus())) {
+                throw new BusinessRuleViolationException("Tài khoản bị khóa do vi phạm chính sách");
+            }
 
-        // Process Customer Logic (success count, return streak, warning, banned)
-        Customer customer = customerPort.loadByCustomerCode(order.getCustomerCode()).orElseGet(() -> {
-            Customer newCus = new Customer();
-            newCus.setId(UUID.randomUUID().toString());
-            newCus.setCustomerCode(order.getCustomerCode());
-            newCus.setStatus("NEW");
-            newCus.setSuccessCount(0);
-            newCus.setReturnStreak(0);
-            newCus.setWarningCount(0);
-            newCus.setCreatedAt(LocalDateTime.now());
-            return newCus;
-        });
+            // 3.5 Kiểm tra trạng thái trứng
+            if ("CLAIMED".equals(egg.getStatus()) || "CANCELLED".equals(egg.getStatus())) {
+                throw new BusinessRuleViolationException("Trứng này đã được mở hoặc bị hủy.");
+            }
 
-        if (isDeliveredNow && !wasDeliveredBefore) {
-            customer.setSuccessCount(customer.getSuccessCount() + 1);
-            if (customer.getReturnStreak() == 0) {
-                if (customer.getSuccessCount() >= 5) {
-                    customer.setStatus("TRUSTED_2");
-                } else if (customer.getSuccessCount() >= 2) {
-                    customer.setStatus("TRUSTED_1");
-                } else {
-                    customer.setStatus("NEW");
+            // 3.6 Kiểm tra điều kiện thời gian ấp (Hatching Cooldown)
+            boolean inHatchCooldown = egg.getHatchAt() != null && LocalDateTime.now().isBefore(egg.getHatchAt());
+            if (inHatchCooldown) {
+                throw new BusinessRuleViolationException("Trứng đang ấp, chưa đến thời gian mở.");
+            }
+
+            // 3.7 Kiểm tra trạng thái đơn hàng đối soát (Absolute Success)
+            boolean isClean = customer.getReturnStreak() == 0;
+            if (egg.getEggType() == 1 && isClean) {
+                // Đối với trứng số 1 của khách hàng AN TOÀN: Chỉ cần đơn hàng không hoàn trả
+                boolean isReturned = "Đang chuyển hoàn".equalsIgnoreCase(syncedOrder.getDeliveryStatus()) 
+                        || "Đã chuyển hoàn".equalsIgnoreCase(syncedOrder.getDeliveryStatus());
+                if (isReturned) {
+                    throw new BusinessRuleViolationException("Đơn hàng này đã bị hoàn/trả.");
+                }
+            } else {
+                // Trứng số 2 hoặc trứng số 1 của khách hàng CẢNH CÁO: Phải đạt trạng thái thành công tuyệt đối
+                if (!isAbsoluteSuccess(syncedOrder)) {
+                    throw new BusinessRuleViolationException("Đơn hàng chưa đạt trạng thái thành công tuyệt đối hoặc chưa đủ 15 ngày.");
                 }
             }
-        }
 
-        if (isReturnedNow && !wasReturnedBefore) {
-            customer.setReturnStreak(customer.getReturnStreak() + 1);
+            // 3.8 Bốc Quà (Sử dụng native query SKIP LOCKED để khóa và phân bổ cực nhanh, chống deadlock)
+            String poolId = egg.getGiftPool().getId();
+            GiftAccount assignedAccount = accountPort.pickAvailableAccountForUpdateSkipLocked(poolId)
+                    .orElseThrow(() -> new BusinessRuleViolationException("Kho quà hiện tại đã hết, vui lòng quay lại sau."));
+
+            // 3.9 Cập nhật trạng thái tài khoản quà tặng
+            assignedAccount.setStatus("ASSIGNED");
+            assignedAccount.setAssignedAt(LocalDateTime.now());
+            accountPort.updateAccount(assignedAccount);
+
+            // 3.10 Cập nhật thông tin trứng
+            egg.setStatus("CLAIMED");
+            egg.setAccount(assignedAccount);
+            eggPort.saveEgg(egg);
+
+            // 3.11 Ghi Log hệ thống
+            EggOpeningLog logEntry = EggOpeningLog.builder()
+                    .id(UUID.randomUUID().toString())
+                    .eggId(egg.getId())
+                    .accountId(assignedAccount.getId())
+                    .actionType("CLAIM_REWARD")
+                    .triggeredBy("USER_IP")
+                    .ipAddress(ipAddress)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            logPort.saveLog(logEntry);
+
+            // 3.12 Xử lý điều kiện Ân xá (Reset Streak) cho khách hàng WARNING
             if (customer.getReturnStreak() == 1) {
-                customer.setStatus("WARNING");
-            } else if (customer.getReturnStreak() >= 2) {
-                customer.setStatus("BANNED");
+                processAmnesty(customer, syncedOrder);
             }
 
-            // Cancel all eggs for this order
-            List<Egg> eggs = eggPort.loadEggsByOrderId(order.getId());
-            for (Egg egg : eggs) {
-                egg.setStatus("CANCELLED");
-                eggPort.saveEgg(egg);
-            }
-        }
-
-        customerPort.saveCustomer(customer);
-        return updatedOrder;
+            return ClaimEggResponse.builder()
+                    .username(assignedAccount.getUsername())
+                    .password(assignedAccount.getPassword())
+                    .platform(assignedAccount.getPlatform())
+                    .message("Chúc mừng! Bạn đã mở trứng thành công.")
+                    .build();
+        });
     }
 
     private boolean isAbsoluteSuccess(KiotvietOrder order) {
@@ -225,7 +154,7 @@ public class ClaimEggService implements ClaimEggUseCase {
         return deliveryDate.plusDays(15).isBefore(LocalDateTime.now());
     }
 
-    private void processAmnesty(Customer customer) {
+    private void processAmnesty(Customer customer, KiotvietOrder currentOrder) {
         // Load all orders of this customer
         List<KiotvietOrder> customerOrders = orderPort.findByCustomerCode(customer.getCustomerCode());
 

@@ -41,6 +41,14 @@ public class KiotvietApiAdapter implements KiotvietApiPort {
     // Tự khởi tạo RestTemplate nếu trong dự án chưa có cấu hình Bean
     private final RestTemplate restTemplate = new RestTemplate();
 
+    @jakarta.annotation.PostConstruct
+    public void init() {
+        org.springframework.http.client.SimpleClientHttpRequestFactory factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5000); // 5 seconds connect timeout
+        factory.setReadTimeout(10000);   // 10 seconds read timeout
+        this.restTemplate.setRequestFactory(factory);
+    }
+
     // Cache Token để không phải gọi API lấy token liên tục
     private String cachedAccessToken = null;
     private long tokenExpiryTime = 0;

@@ -32,6 +32,11 @@ public class EggPersistenceAdapter implements EggPersistencePort {
     }
 
     @Override
+    public Optional<Egg> findById(String id) {
+        return repository.findByIdWithRelations(id).map(mapper::toDomain);
+    }
+
+    @Override
     public List<Egg> loadEggsByOrderId(String orderId) {
         return repository.findByOrderId(orderId)
                 .stream()

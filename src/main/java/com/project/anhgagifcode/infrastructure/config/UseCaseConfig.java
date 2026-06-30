@@ -5,9 +5,16 @@ import com.project.anhgagifcode.application.port.out.*;
 import com.project.anhgagifcode.application.service.*;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.transaction.PlatformTransactionManager;
 
 @Configuration
 public class UseCaseConfig {
+
+    private final PlatformTransactionManager transactionManager;
+
+    public UseCaseConfig(PlatformTransactionManager transactionManager) {
+        this.transactionManager = transactionManager;
+    }
 
     @Bean
     public SyncKiotvietOrderUseCase syncKiotvietOrderUseCase(
@@ -16,7 +23,7 @@ public class UseCaseConfig {
             CustomerPersistencePort customerPort,
             ProductEggMappingPersistencePort mappingPort,
             EggPersistencePort eggPort) {
-        return new SyncKiotvietOrderService(orderPort, apiPort, customerPort, mappingPort, eggPort);
+        return new SyncKiotvietOrderService(orderPort, apiPort, customerPort, mappingPort, eggPort, transactionManager);
     }
 
     @Bean
@@ -25,14 +32,16 @@ public class UseCaseConfig {
             GiftAccountPersistencePort accountPort,
             EggOpeningLogPersistencePort logPort,
             KiotvietOrderPersistencePort orderPort,
-            KiotvietApiPort apiPort,
-            CustomerPersistencePort customerPort) {
-        return new ClaimEggService(eggPort, accountPort, logPort, orderPort, apiPort, customerPort);
+            CustomerPersistencePort customerPort,
+            SyncKiotvietOrderUseCase syncOrderUseCase) {
+        return new ClaimEggService(eggPort, accountPort, logPort, orderPort, customerPort, syncOrderUseCase, transactionManager);
     }
     
     @Bean
-    public SyncKiotvietProductUseCase syncKiotvietProductUseCase(KiotvietApiPort kiotvietApiPort, KiotvietProductPersistencePort productPersistencePort) {
-        return new SyncKiotvietProductService(kiotvietApiPort, productPersistencePort);
+    public SyncKiotvietProductUseCase syncKiotvietProductUseCase(
+            KiotvietApiPort kiotvietApiPort, 
+            KiotvietProductPersistencePort productPersistencePort) {
+        return new SyncKiotvietProductService(kiotvietApiPort, productPersistencePort, transactionManager);
     }
 
     @Bean

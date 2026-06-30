@@ -1,5 +1,6 @@
 package com.project.anhgagifcode.application.service;
 
+import com.project.anhgagifcode.application.port.in.SyncKiotvietOrderUseCase;
 import com.project.anhgagifcode.application.port.in.dto.ClaimEggResponse;
 import com.project.anhgagifcode.application.port.out.*;
 import com.project.anhgagifcode.domain.exception.BusinessRuleViolationException;
@@ -10,6 +11,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -17,7 +20,6 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,9 +34,11 @@ class ClaimEggServiceTest {
     @Mock
     private KiotvietOrderPersistencePort orderPort;
     @Mock
-    private KiotvietApiPort apiPort;
-    @Mock
     private CustomerPersistencePort customerPort;
+    @Mock
+    private SyncKiotvietOrderUseCase syncOrderUseCase;
+    @Mock
+    private PlatformTransactionManager transactionManager;
 
     @InjectMocks
     private ClaimEggService claimService;
@@ -96,14 +100,17 @@ class ClaimEggServiceTest {
                 .platform("Steam")
                 .status("AVAILABLE")
                 .build();
+
+        lenient().when(eggPort.findById("egg-uuid")).thenReturn(Optional.of(validEgg));
+        lenient().when(syncOrderUseCase.syncOrderIfNeeded(any())).thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(transactionManager.getTransaction(any())).thenReturn(mock(TransactionStatus.class));
     }
 
     @Test
     void claimEggReward_Success_CleanCustomer_Egg1_Immediate() {
         when(eggPort.loadEggForUpdate("egg-uuid")).thenReturn(Optional.of(validEgg));
         when(customerPort.loadByCustomerCode("CUS88")).thenReturn(Optional.of(cleanCustomer));
-        when(accountPort.countAvailableAccountsByPoolId("pool-uuid")).thenReturn(10L);
-        when(accountPort.pickRandomAvailableAccountForUpdate(eq("pool-uuid"), anyInt())).thenReturn(Optional.of(availableAccount));
+        when(accountPort.pickAvailableAccountForUpdateSkipLocked("pool-uuid")).thenReturn(Optional.of(availableAccount));
 
         ClaimEggResponse response = claimService.claimEggReward("egg-uuid", "127.0.0.1");
 
@@ -125,7 +132,7 @@ class ClaimEggServiceTest {
             claimService.claimEggReward("egg-uuid", "127.0.0.1");
         });
 
-        assertEquals("Tài khóa bị khóa do vi phạm chính sách", exception.getMessage().replace("Tài khoản", "Tài khóa"));
+        assertEquals("Tài khoản bị khóa do vi phạm chính sách", exception.getMessage());
     }
 
     @Test
@@ -179,8 +186,7 @@ class ClaimEggServiceTest {
 
         when(eggPort.loadEggForUpdate("egg-uuid")).thenReturn(Optional.of(validEgg));
         when(customerPort.loadByCustomerCode("CUS88")).thenReturn(Optional.of(warningCustomer));
-        when(accountPort.countAvailableAccountsByPoolId("pool-uuid")).thenReturn(10L);
-        when(accountPort.pickRandomAvailableAccountForUpdate(eq("pool-uuid"), anyInt())).thenReturn(Optional.of(availableAccount));
+        when(accountPort.pickAvailableAccountForUpdateSkipLocked("pool-uuid")).thenReturn(Optional.of(availableAccount));
 
         // Mock two orders post-return that are fully claimed and successful
         KiotvietOrder order1 = KiotvietOrder.builder()

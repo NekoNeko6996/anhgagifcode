@@ -1,21 +1,25 @@
 package com.project.anhgagifcode.infrastructure.security;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.Refill;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class RateLimitingService {
 
-    private final Map<String, Bucket> cache = new ConcurrentHashMap<>();
+    private final Cache<String, Bucket> cache = Caffeine.newBuilder()
+            .expireAfterAccess(10, TimeUnit.MINUTES) // Tự động xóa sau 10 phút không hoạt động
+            .maximumSize(100000) // Giới hạn tối đa 100,000 bản ghi để tránh cạn kiệt RAM
+            .build();
 
     public Bucket resolveBucket(String ip) {
-        return cache.computeIfAbsent(ip, this::newBucket);
+        return cache.get(ip, this::newBucket);
     }
 
     private Bucket newBucket(String ip) {

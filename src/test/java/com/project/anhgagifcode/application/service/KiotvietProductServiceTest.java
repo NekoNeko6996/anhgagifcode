@@ -28,6 +28,8 @@ class KiotvietProductServiceTest {
     private ProductEggMappingPersistencePort mappingPersistencePort;
     @Mock
     private KiotvietApiPort apiPort;
+    @Mock
+    private org.springframework.transaction.PlatformTransactionManager transactionManager;
 
     private KiotvietProduct mockProduct;
     private ProductEggMapping mockMapping;
@@ -58,6 +60,8 @@ class KiotvietProductServiceTest {
                 .giftPoolId(mockPool)
                 .createdAt(LocalDateTime.now())
                 .build();
+
+        lenient().when(transactionManager.getTransaction(any())).thenReturn(mock(org.springframework.transaction.TransactionStatus.class));
     }
 
     @Test
@@ -81,7 +85,7 @@ class KiotvietProductServiceTest {
 
     @Test
     void testSyncProductsFromKiotviet_Success() {
-        SyncKiotvietProductService service = new SyncKiotvietProductService(apiPort, productPersistencePort);
+        SyncKiotvietProductService service = new SyncKiotvietProductService(apiPort, productPersistencePort, transactionManager);
         when(apiPort.fetchAllProductsFromKiotviet()).thenReturn(List.of(mockProduct));
         when(productPersistencePort.saveProduct(any(KiotvietProduct.class))).thenReturn(mockProduct);
 

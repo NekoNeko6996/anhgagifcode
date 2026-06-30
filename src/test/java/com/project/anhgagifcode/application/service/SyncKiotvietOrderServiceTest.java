@@ -31,6 +31,8 @@ class SyncKiotvietOrderServiceTest {
     private ProductEggMappingPersistencePort mappingPort;
     @Mock
     private EggPersistencePort eggPort;
+    @Mock
+    private org.springframework.transaction.PlatformTransactionManager transactionManager;
 
     @InjectMocks
     private SyncKiotvietOrderService syncService;
@@ -105,6 +107,8 @@ class SyncKiotvietOrderServiceTest {
                 .eggType(2)
                 .giftPoolId(poolA)
                 .build();
+
+        lenient().when(transactionManager.getTransaction(any())).thenReturn(mock(org.springframework.transaction.TransactionStatus.class));
     }
 
     @Test

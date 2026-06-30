@@ -72,7 +72,7 @@ public class KiotvietOrders implements Serializable {
     private Date updatedAt;
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "orderId")
     private Collection<Eggs> eggsCollection;
-    @OneToMany(cascade = CascadeType.ALL, mappedBy = "orderId")
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "orderId", fetch = jakarta.persistence.FetchType.EAGER)
     private Collection<KiotvietOrderItems> kiotvietOrderItemsCollection;
     @JoinColumn(name = "customer_code", referencedColumnName = "customer_code")
     @ManyToOne(optional = false)

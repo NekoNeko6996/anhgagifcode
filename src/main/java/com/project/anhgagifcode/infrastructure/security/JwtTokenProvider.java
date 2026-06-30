@@ -16,7 +16,7 @@ import java.util.Date;
 @Component
 public class JwtTokenProvider {
 
-    @Value("${jwt.secret:daylamotchuoisieubaomatvadaidechonghackbangjwt123456}")
+    @Value("${jwt.secret}")
     private String jwtSecret;
 
     private final long jwtExpirationMs = 86400000L; // 24h

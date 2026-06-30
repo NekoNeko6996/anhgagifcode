@@ -17,7 +17,10 @@ public interface EggJpaRepository extends JpaRepository<Eggs, String> {
     @Query("SELECT e FROM Eggs e WHERE e.id = :id")
     Optional<Eggs> findByIdForUpdate(@Param("id") String id);
 
-    @Query("SELECT e FROM Eggs e WHERE e.orderId.id = :orderId")
+    @Query("SELECT e FROM Eggs e LEFT JOIN FETCH e.orderId LEFT JOIN FETCH e.giftPoolId LEFT JOIN FETCH e.accountId WHERE e.id = :id")
+    Optional<Eggs> findByIdWithRelations(@Param("id") String id);
+
+    @Query("SELECT e FROM Eggs e LEFT JOIN FETCH e.orderId LEFT JOIN FETCH e.giftPoolId LEFT JOIN FETCH e.accountId WHERE e.orderId.id = :orderId")
     List<Eggs> findByOrderId(@Param("orderId") String orderId);
 
     @Modifying
