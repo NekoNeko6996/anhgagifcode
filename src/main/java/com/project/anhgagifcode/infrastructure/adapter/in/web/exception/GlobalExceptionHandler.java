@@ -10,6 +10,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 
 import java.time.LocalDateTime;
 import java.util.stream.Collectors;
@@ -48,6 +49,12 @@ public class GlobalExceptionHandler {
 
         log.warn("Validation Error: {}", errorMessage);
         return buildErrorResponse(HttpStatus.BAD_REQUEST, errorMessage, request.getRequestURI());
+    }
+
+    // Bắt lỗi AsyncRequestNotUsableException (Client ngắt kết nối đột ngột khi request đang chạy bất đồng bộ)
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    public void handleAsyncRequestNotUsableException(AsyncRequestNotUsableException ex) {
+        log.warn("Async request not usable (client disconnected): {}", ex.getMessage());
     }
 
     // 4. Bắt tất cả các lỗi hệ thống không lường trước được -> Trả về 500 Internal Server Error
