@@ -6,6 +6,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${title} + ' - Sapo Webhook Admin'"></title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
     <link rel="stylesheet" th:href="@{/css/admin.css}">
     <!-- Inline Lucide Icons using simple SVG icons or FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -14,66 +15,74 @@
 <body>
 
     <!-- Sidebar Fragment -->
-    <div th:fragment="sidebar(activePage)" class="sidebar" id="sidebar">
-        <div class="sidebar-brand">
-            <i class="fa-solid fa-gamepad"></i>
-            <span>Egg Hatch Admin</span>
+    <div th:fragment="sidebar(activePage)">
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <i class="fa-solid fa-gamepad"></i>
+                <span>Egg Hatch Admin</span>
+            </div>
+            <ul class="sidebar-menu">
+                <li class="sidebar-item" th:classappend="${activePage == 'dashboard' ? 'active' : ''}">
+                    <a th:href="@{/admin/dashboard}">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <span>Đơn Hàng & Thống Kê</span>
+                    </a>
+                </li>
+                <li class="sidebar-item" th:classappend="${activePage == 'eggs' ? 'active' : ''}">
+                    <a th:href="@{/admin/eggs}">
+                        <i class="fa-solid fa-egg"></i>
+                        <span>Quản Lý Trứng</span>
+                    </a>
+                </li>
+                <li class="sidebar-item" th:classappend="${activePage == 'customers' ? 'active' : ''}">
+                    <a th:href="@{/admin/customers}">
+                        <i class="fa-solid fa-users"></i>
+                        <span>Quản Lý Khách Hàng</span>
+                    </a>
+                </li>
+                <li class="sidebar-item" th:classappend="${activePage == 'gift-accounts' ? 'active' : ''}">
+                    <a th:href="@{/admin/gift-accounts}">
+                        <i class="fa-solid fa-vault"></i>
+                        <span>Kho Quà (Accounts)</span>
+                    </a>
+                </li>
+                <li class="sidebar-item" th:classappend="${activePage == 'gift-pools' ? 'active' : ''}">
+                    <a th:href="@{/admin/gift-pools}">
+                        <i class="fa-solid fa-layer-group"></i>
+                        <span>Bể Quà (Gift Pools)</span>
+                    </a>
+                </li>
+                <li class="sidebar-item" th:classappend="${activePage == 'products' ? 'active' : ''}">
+                    <a th:href="@{/admin/products}">
+                        <i class="fa-solid fa-box-open"></i>
+                        <span>Sản Phẩm & Ánh Xạ</span>
+                    </a>
+                </li>
+                <li class="sidebar-item" th:classappend="${activePage == 'settings' ? 'active' : ''}">
+                    <a th:href="@{/admin/settings}">
+                        <i class="fa-solid fa-gears"></i>
+                        <span>Đổi Mật Khẩu Admin</span>
+                    </a>
+                </li>
+            </ul>
+            <div class="sidebar-footer">
+                <button class="btn-logout" onclick="logoutAdmin()">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                    <span>Đăng xuất</span>
+                </button>
+            </div>
         </div>
-        <ul class="sidebar-menu">
-            <li class="sidebar-item" th:classappend="${activePage == 'dashboard' ? 'active' : ''}">
-                <a th:href="@{/admin/dashboard}">
-                    <i class="fa-solid fa-chart-line"></i>
-                    <span>Đơn Hàng & Thống Kê</span>
-                </a>
-            </li>
-            <li class="sidebar-item" th:classappend="${activePage == 'eggs' ? 'active' : ''}">
-                <a th:href="@{/admin/eggs}">
-                    <i class="fa-solid fa-egg"></i>
-                    <span>Quản Lý Trứng</span>
-                </a>
-            </li>
-            <li class="sidebar-item" th:classappend="${activePage == 'customers' ? 'active' : ''}">
-                <a th:href="@{/admin/customers}">
-                    <i class="fa-solid fa-users"></i>
-                    <span>Quản Lý Khách Hàng</span>
-                </a>
-            </li>
-            <li class="sidebar-item" th:classappend="${activePage == 'gift-accounts' ? 'active' : ''}">
-                <a th:href="@{/admin/gift-accounts}">
-                    <i class="fa-solid fa-vault"></i>
-                    <span>Kho Quà (Accounts)</span>
-                </a>
-            </li>
-            <li class="sidebar-item" th:classappend="${activePage == 'gift-pools' ? 'active' : ''}">
-                <a th:href="@{/admin/gift-pools}">
-                    <i class="fa-solid fa-layer-group"></i>
-                    <span>Bể Quà (Gift Pools)</span>
-                </a>
-            </li>
-            <li class="sidebar-item" th:classappend="${activePage == 'products' ? 'active' : ''}">
-                <a th:href="@{/admin/products}">
-                    <i class="fa-solid fa-box-open"></i>
-                    <span>Sản Phẩm & Ánh Xạ</span>
-                </a>
-            </li>
-            <li class="sidebar-item" th:classappend="${activePage == 'settings' ? 'active' : ''}">
-                <a th:href="@{/admin/settings}">
-                    <i class="fa-solid fa-gears"></i>
-                    <span>Đổi Mật Khẩu Admin</span>
-                </a>
-            </li>
-        </ul>
-        <div class="sidebar-footer">
-            <button class="btn-logout" onclick="logoutAdmin()">
-                <i class="fa-solid fa-right-from-bracket"></i>
-                <span>Đăng xuất</span>
-            </button>
-        </div>
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
     </div>
 
     <!-- Topbar Fragment -->
     <div th:fragment="topbar(title)" class="topbar">
-        <h2 class="page-title" th:text="${title}"></h2>
+        <div style="display: flex; align-items: center;">
+            <button class="btn-toggle-sidebar" id="toggleSidebarBtn" onclick="toggleSidebar()">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+            <h2 class="page-title" th:text="${title}"></h2>
+        </div>
         <div class="user-profile">
             <div class="user-avatar" id="avatarLetter">A</div>
             <div class="user-info">
@@ -103,6 +112,13 @@
                         if (profileUsername) profileUsername.textContent = username;
                     });
                 }
+            }
+
+            function toggleSidebar() {
+                const sidebar = document.getElementById('sidebar');
+                const overlay = document.getElementById('sidebarOverlay');
+                if (sidebar) sidebar.classList.toggle('active');
+                if (overlay) overlay.classList.toggle('active');
             }
 
             function logoutAdmin() {
@@ -144,6 +160,30 @@
                     console.error('Request failed:', error);
                     showAlert('Lỗi kết nối máy chủ!', 'error');
                     throw error;
+                }
+            }
+
+            // Download protected file with token
+            async function downloadProtectedFile(url, fileName) {
+                try {
+                    const response = await fetchWithAuth(url);
+                    if (response && response.ok) {
+                        const blob = await response.blob();
+                        const blobUrl = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = blobUrl;
+                        a.download = fileName;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        window.URL.revokeObjectURL(blobUrl);
+                        showAlert('Tải file thành công!', 'success');
+                    } else {
+                        showAlert('Không có quyền tải file hoặc file không tồn tại!', 'error');
+                    }
+                } catch (error) {
+                    console.error('Download error:', error);
+                    showAlert('Lỗi khi tải file!', 'error');
                 }
             }
 

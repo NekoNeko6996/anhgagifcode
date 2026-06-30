@@ -13,6 +13,22 @@
 
         <!-- Content Area -->
         <div class="content-area">
+            <!-- Excel Guidelines & Download Sample -->
+            <div class="excel-guide-box">
+                <div class="excel-guide-title">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span>Hướng dẫn tải lên dữ liệu tài khoản từ Excel</span>
+                </div>
+                <ul class="excel-guide-list" style="margin-bottom: 12px;">
+                    <li>File tải lên bắt buộc phải đúng cấu trúc các cột: <strong>Username</strong>, <strong>Password</strong>, <strong>Platform</strong>, <strong>Tier</strong> (A, B, C, D, E,...), và <strong>Token</strong> (nếu có).</li>
+                    <li>Chỉ hỗ trợ định dạng Excel 2007 trở lên (mở rộng <code>.xlsx</code>).</li>
+                    <li>Sau khi chuẩn bị dữ liệu, nhấn nút <strong>Import Excel</strong> bên dưới để thực hiện tải danh sách tài khoản vào kho quà.</li>
+                </ul>
+                <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="downloadProtectedFile('/admin/resources/example_account_data_table.xlsx', 'example_account_data_table.xlsx')">
+                    <i class="fa-solid fa-download"></i> Tải file Excel mẫu
+                </button>
+            </div>
+
             <!-- Filter & Action Card -->
             <div class="card" style="margin-bottom: 24px;">
                 <div class="action-header">

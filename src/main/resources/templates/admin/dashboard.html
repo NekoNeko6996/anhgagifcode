@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{admin/fragments :: htmlHeader('Đơn Hàng & Thống Kê')}"></head>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <body>
     <!-- Sidebar -->
@@ -34,6 +35,28 @@
                     <div class="card-title">Tổng Khách Hàng</div>
                     <div class="card-value" id="statCustomers">-</div>
                     <div class="card-desc">Khách hàng được ghi nhận</div>
+                </div>
+            </div>
+
+            <!-- Charts Grid -->
+            <div class="charts-grid">
+                <div class="card">
+                    <h3 style="font-size: 12px; font-weight: 500; margin-bottom: 16px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Trạng Thái Đơn Hàng</h3>
+                    <div class="chart-container">
+                        <canvas id="orderChart"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3 style="font-size: 12px; font-weight: 500; margin-bottom: 16px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Tình Trạng Ấp Trứng</h3>
+                    <div class="chart-container">
+                        <canvas id="eggChart"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3 style="font-size: 12px; font-weight: 500; margin-bottom: 16px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Kho Quà Theo Tier</h3>
+                    <div class="chart-container">
+                        <canvas id="giftChart"></canvas>
+                    </div>
                 </div>
             </div>
 
@@ -112,11 +135,147 @@
 
                     // Render orders table
                     renderOrders(orders);
+
+                    // Render visual charts
+                    renderCharts(orders, eggs, gifts);
                 }
             } catch (error) {
                 console.error('Error fetching dashboard data:', error);
                 showAlert('Lỗi khi tải dữ liệu dashboard!', 'error');
             }
+        }
+
+        let orderChartInstance = null;
+        let eggChartInstance = null;
+        let giftChartInstance = null;
+
+        function renderCharts(orders, eggs, gifts) {
+            // Group Orders by status
+            let completedOrders = 0;
+            let cancelledOrders = 0;
+            let pendingOrders = 0;
+
+            orders.forEach(o => {
+                const status = (o.deliveryStatus || '').toUpperCase();
+                if (status === 'COMPLETED' || status === 'SUCCESS' || status.includes('THÀNH CÔNG') || status.includes('HOÀN TẤT')) {
+                    completedOrders++;
+                } else if (status === 'CANCELLED' || status.includes('HỦY')) {
+                    cancelledOrders++;
+                } else {
+                    pendingOrders++;
+                }
+            });
+
+            // Group Eggs by status
+            let claimedEggs = 0;
+            let pendingEggs = 0;
+            let cancelledEggs = 0;
+
+            eggs.forEach(e => {
+                const status = (e.status || '').toUpperCase();
+                if (status === 'CLAIMED') claimedEggs++;
+                else if (status === 'PENDING') pendingEggs++;
+                else if (status === 'CANCELLED') cancelledEggs++;
+            });
+
+            // Group Gifts by tier and status
+            const tiers = ['A', 'B', 'C', 'D', 'E'];
+            const giftDataAvailable = [0, 0, 0, 0, 0];
+            const giftDataAssigned = [0, 0, 0, 0, 0];
+
+            gifts.forEach(g => {
+                const tierIndex = tiers.indexOf(g.tier || 'E');
+                if (tierIndex !== -1) {
+                    if (g.status === 'AVAILABLE') {
+                        giftDataAvailable[tierIndex]++;
+                    } else {
+                        giftDataAssigned[tierIndex]++;
+                    }
+                }
+            });
+
+            // Destroy previous instances if reload is called
+            if (orderChartInstance) orderChartInstance.destroy();
+            if (eggChartInstance) eggChartInstance.destroy();
+            if (giftChartInstance) giftChartInstance.destroy();
+
+            // Render Order Chart
+            const ctxOrder = document.getElementById('orderChart').getContext('2d');
+            orderChartInstance = new Chart(ctxOrder, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Thành công', 'Đã hủy', 'Đang chờ'],
+                    datasets: [{
+                        data: [completedOrders, cancelledOrders, pendingOrders],
+                        backgroundColor: ['#81c995', '#f28b82', '#8ab4f8'],
+                        borderWidth: 1,
+                        borderColor: '#292a2d'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#e8eaed', font: { size: 11 } } }
+                    }
+                }
+            });
+
+            // Render Egg Chart
+            const ctxEgg = document.getElementById('eggChart').getContext('2d');
+            eggChartInstance = new Chart(ctxEgg, {
+                type: 'pie',
+                data: {
+                    labels: ['Đã mở (Claimed)', 'Đang ấp (Pending)', 'Bị hủy (Cancelled)'],
+                    datasets: [{
+                        data: [claimedEggs, pendingEggs, cancelledEggs],
+                        backgroundColor: ['#81c995', '#fdd663', '#f28b82'],
+                        borderWidth: 1,
+                        borderColor: '#292a2d'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#e8eaed', font: { size: 11 } } }
+                    }
+                }
+            });
+
+            // Render Gift Chart (Bar chart)
+            const ctxGift = document.getElementById('giftChart').getContext('2d');
+            giftChartInstance = new Chart(ctxGift, {
+                type: 'bar',
+                data: {
+                    labels: ['Tier A', 'Tier B', 'Tier C', 'Tier D', 'Tier E'],
+                    datasets: [
+                        {
+                            label: 'Có sẵn',
+                            data: giftDataAvailable,
+                            backgroundColor: '#81c995',
+                            borderWidth: 0
+                        },
+                        {
+                            label: 'Đã gán',
+                            data: giftDataAssigned,
+                            backgroundColor: '#3c4043',
+                            borderWidth: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#9aa0a6' } },
+                        y: { grid: { color: '#3c4043' }, ticks: { color: '#9aa0a6', precision: 0 } }
+                    },
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#e8eaed', font: { size: 11 } } }
+                    }
+                }
+            });
         }
 
         function renderOrders(orders) {
