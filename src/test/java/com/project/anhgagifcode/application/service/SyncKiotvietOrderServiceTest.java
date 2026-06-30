@@ -267,4 +267,51 @@ class SyncKiotvietOrderServiceTest {
         // Verify API WAS called
         verify(apiPort, times(1)).fetchOrderFromKiotviet("OD123");
     }
+
+    @Test
+    void syncAndGetOrderDetails_SuffixInput_FirstTimeSync_TriesPrefixesAndSucceeds() {
+        String suffix = "260628ABEF6676";
+        String expectedFullCode = "HDSPE_260628ABEF6676";
+        
+        KiotvietOrder expectedOrder = KiotvietOrder.builder()
+                .id("order-id")
+                .orderCode(expectedFullCode)
+                .customerCode("CUS99")
+                .deliveryStatus("Đã giao hàng")
+                .orderItems(List.of(
+                        KiotvietOrderItem.builder()
+                                .id("item-1")
+                                .kvProductId("prod-1")
+                                .quantity(1)
+                                .build()
+                ))
+                .build();
+                
+        // Mock orderPort.loadByOrderCode to return empty for suffix
+        when(orderPort.loadByOrderCode(suffix)).thenReturn(Optional.empty());
+        
+        // Mock findDistinctPrefixes to return some DB prefixes
+        when(orderPort.findDistinctPrefixes()).thenReturn(List.of("MY_CUSTOM_PREFIX"));
+        
+        // Mock apiPort.fetchOrderFromKiotviet
+        lenient().when(apiPort.fetchOrderFromKiotviet(suffix)).thenReturn(Optional.empty());
+        lenient().when(apiPort.fetchOrderFromKiotviet(anyString())).thenReturn(Optional.empty());
+        lenient().when(apiPort.fetchOrderFromKiotviet(expectedFullCode)).thenReturn(Optional.of(expectedOrder));
+        
+        // Mock persistence
+        when(orderPort.saveOrder(any(KiotvietOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(customerPort.loadByCustomerCode("CUS99")).thenReturn(Optional.of(cleanCustomer));
+        when(customerPort.saveCustomer(any(Customer.class))).thenAnswer(inv -> inv.getArgument(0));
+        
+        // Call service
+        SyncOrderResponse response = syncService.syncAndGetOrderDetails(suffix);
+        
+        // Verify
+        assertNotNull(response);
+        assertEquals("NEW", response.getCustomerStatus());
+        assertEquals("Đã giao hàng", response.getDeliveryStatus());
+        
+        // Verify apiPort was called with expected Full Code
+        verify(apiPort, atLeastOnce()).fetchOrderFromKiotviet(expectedFullCode);
+    }
 }

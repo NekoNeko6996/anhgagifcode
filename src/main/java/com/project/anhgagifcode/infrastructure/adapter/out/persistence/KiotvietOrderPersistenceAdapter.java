@@ -24,7 +24,47 @@ public class KiotvietOrderPersistenceAdapter implements KiotvietOrderPersistence
 
     @Override
     public Optional<KiotvietOrder> loadByOrderCode(String orderCode) {
-        return repository.findByOrderCode(orderCode).map(mapper::toDomain);
+        java.util.List<String> candidateCodes = new java.util.ArrayList<>();
+        candidateCodes.add(orderCode);
+
+        // Nếu mã không giống mã đầy đủ (không chứa '_' và không bắt đầu bằng các tiền tố quen thuộc), thêm tiền tố tìm kiếm trong DB
+        boolean looksLikeFullCode = orderCode.contains("_")
+                || orderCode.startsWith("HD")
+                || orderCode.startsWith("DH")
+                || orderCode.startsWith("OD");
+
+        if (!looksLikeFullCode) {
+            java.util.List<String> dbPrefixes = repository.findDistinctPrefixes();
+            if (dbPrefixes == null) {
+                dbPrefixes = java.util.Collections.emptyList();
+            }
+            java.util.List<String> defaultPrefixes = java.util.List.of("HDTTS", "HDSPE", "DHTTS", "DHSPE", "HD", "DH", "OD");
+            java.util.List<String> allPrefixes = new java.util.ArrayList<>(dbPrefixes);
+            for (String def : defaultPrefixes) {
+                if (!allPrefixes.contains(def)) {
+                    allPrefixes.add(def);
+                }
+            }
+            for (String prefix : allPrefixes) {
+                candidateCodes.add(prefix + "_" + orderCode);
+                candidateCodes.add(prefix + orderCode);
+            }
+        }
+
+        List<KiotvietOrders> orders = repository.findByOrderCodeIn(candidateCodes);
+        if (orders.isEmpty()) {
+            return Optional.empty();
+        }
+        return orders.stream()
+                .filter(o -> o.getOrderCode().equalsIgnoreCase(orderCode))
+                .findFirst()
+                .or(() -> orders.stream().findFirst())
+                .map(mapper::toDomain);
+    }
+
+    @Override
+    public List<String> findDistinctPrefixes() {
+        return repository.findDistinctPrefixes();
     }
 
     @Override

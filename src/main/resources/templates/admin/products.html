@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments :: htmlHeader('Sản Phẩm & Ánh Xạ Trứng')}"></head>
+
+<body>
+    <!-- Sidebar -->
+    <div th:replace="~{admin/fragments :: sidebar('products')}"></div>
+
+    <!-- Main Content Wrapper -->
+    <div class="main-wrapper">
+        <!-- Topbar -->
+        <div th:replace="~{admin/fragments :: topbar('Cấu Hình Ánh Xạ Sản Phẩm KiotViet')}"></div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Action Header Card -->
+            <div class="card" style="margin-bottom: 24px;">
+                <div class="action-header">
+                    <div class="search-box">
+                        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                        <input type="text" id="productSearch" class="search-input" placeholder="Tìm theo tên SP, ID KiotViet..." onkeyup="filterProducts()">
+                    </div>
+                    
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <button class="btn btn-primary" id="btnSyncProducts" onclick="syncProducts()">
+                            <i class="fa-solid fa-cloud-arrow-down"></i> Đồng bộ từ KiotViet
+                        </button>
+                        <button class="btn btn-secondary" onclick="loadProductsData()">
+                            <i class="fa-solid fa-rotate"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table" id="productsTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 80px;">Ảnh</th>
+                                <th>ID KiotViet</th>
+                                <th>Tên Sản Phẩm</th>
+                                <th>Giá Gốc (VND)</th>
+                                <th>Cấu Hình Ánh Xạ Trứng (Game Rules)</th>
+                                <th>Hành Động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productsTableBody">
+                            <tr>
+                                <td colspan="6" style="text-align: center; color: var(--text-secondary);">Đang tải dữ liệu...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Mapping Modal -->
+    <div class="modal-overlay" id="mappingModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Tạo Ánh Xạ Sản Phẩm - Trứng</h3>
+                <button class="modal-close" onclick="closeMappingModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="mappingForm" onsubmit="submitMapping(event)">
+                    <input type="hidden" id="mappingProductId">
+                    
+                    <div class="form-group">
+                        <label class="form-label">Sản phẩm chọn</label>
+                        <input class="form-input" type="text" id="mappingProductName" readonly>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="mappingEggType">Loại trứng đẻ ra</label>
+                        <select id="mappingEggType" class="form-select" required>
+                            <option value="1">Trứng Loại 1 (Nhận ngay tài khoản cấp 1)</option>
+                            <option value="2">Trứng Loại 2 (Cần ấp đếm ngược nhận tài khoản cấp cao)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="mappingPoolId">Bể quà tặng liên kết</label>
+                        <select id="mappingPoolId" class="form-select" required>
+                            <option value="">-- Đang tải bể quà --</option>
+                        </select>
+                    </div>
+
+                    <div class="modal-footer" style="padding-bottom: 0; padding-right: 0;">
+                        <button type="button" class="btn btn-secondary" onclick="closeMappingModal()">Hủy</button>
+                        <button type="submit" class="btn btn-primary">Tạo liên kết</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script imports & Alert container -->
+    <div th:replace="~{admin/fragments :: footerScripts}"></div>
+
+    <script>
+        let allProducts = [];
+        let allPools = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadProductsData();
+            loadPoolsData();
+        });
+
+        async function loadProductsData() {
+            try {
+                const response = await fetchWithAuth('/api/admin/products');
+                if (response) {
+                    const data = await response.json();
+                    allProducts = data;
+                    renderProducts(data);
+                }
+            } catch (error) {
+                console.error('Error fetching products:', error);
+                showAlert('Lỗi khi tải danh sách sản phẩm!', 'error');
+            }
+        }
+
+        async function loadPoolsData() {
+            try {
+                const response = await fetchWithAuth('/api/admin/gift-pools');
+                if (response) {
+                    allPools = await response.json();
+                    populatePoolsSelect();
+                }
+            } catch (error) {
+                console.error('Error fetching pools:', error);
+            }
+        }
+
+        function populatePoolsSelect() {
+            const select = document.getElementById('mappingPoolId');
+            select.innerHTML = '<option value="">Chọn bể quà tương ứng...</option>';
+            allPools.forEach(pool => {
+                const opt = document.createElement('option');
+                opt.value = pool.id;
+                opt.textContent = `${pool.poolName} (Tier ${pool.tier})`;
+                select.appendChild(opt);
+            });
+        }
+
+        function renderProducts(products) {
+            const tbody = document.getElementById('productsTableBody');
+            tbody.innerHTML = '';
+
+            if (products.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">Không có sản phẩm nào. Nhấp "Đồng bộ" để lấy dữ liệu.</td></tr>`;
+                return;
+            }
+
+            products.forEach(prod => {
+                const tr = document.createElement('tr');
+                
+                // Image
+                const imgTag = prod.imageUrl 
+                    ? `<img src="${prod.imageUrl}" alt="${prod.name}" style="width: 50px; height: 50px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border-color);">`
+                    : `<div style="width: 50px; height: 50px; border-radius: 6px; background-color: rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; color:var(--text-secondary); border: 1px solid var(--border-color);"><i class="fa-solid fa-image"></i></div>`;
+
+                const formattedPrice = new Intl.NumberFormat('vi-VN').format(prod.basePrice || 0);
+
+                // Mappings layout
+                let mappingsLayout = '';
+                if (prod.mappings && prod.mappings.length > 0) {
+                    prod.mappings.forEach(m => {
+                        const typeBadge = m.eggType === 1 
+                            ? `<span style="color:var(--color-secondary); font-weight:600;">T1 (Nhận ngay)</span>`
+                            : `<span style="color:var(--color-warning); font-weight:600;">T2 (Cần ấp)</span>`;
+                        const poolName = m.giftPool ? m.giftPool.poolName : 'Bể quà không rõ';
+                        const tier = m.giftPool ? m.giftPool.tier : '-';
+
+                        mappingsLayout += `
+                            <div class="mapping-tag">
+                                <span>${typeBadge} &rarr; <strong>${poolName} (Tier ${tier})</strong></span>
+                                <span class="mapping-tag-delete" title="Xóa cấu hình này" onclick="deleteMapping('${m.id}')">&times;</span>
+                            </div>
+                        `;
+                    });
+                } else {
+                    mappingsLayout = `<span style="font-size:12px; color:var(--text-secondary);">Chưa thiết lập (Không phát sinh trứng khi mua SP này)</span>`;
+                }
+
+                tr.innerHTML = `
+                    <td>${imgTag}</td>
+                    <td style="font-family:monospace; font-size:13px;">${prod.kvProductId}</td>
+                    <td style="font-weight:600; color:var(--text-primary); max-width: 250px;">${prod.name || '-'}</td>
+                    <td>${formattedPrice}</td>
+                    <td><div style="display:flex; flex-wrap:wrap;">${mappingsLayout}</div></td>
+                    <td>
+                        <button class="btn btn-secondary" style="padding: 6px 12px; font-size:12px;" onclick="openMappingModal(${prod.kvProductId}, '${prod.name.replace(/'/g, "\\'")}')">
+                            <i class="fa-solid fa-link"></i> Thêm Ánh Xạ
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterProducts() {
+            const query = document.getElementById('productSearch').value.toLowerCase().trim();
+            const filtered = allProducts.filter(prod => {
+                const idMatch = prod.kvProductId.toString().includes(query);
+                const nameMatch = (prod.name || '').toLowerCase().includes(query);
+                return idMatch || nameMatch;
+            });
+            renderProducts(filtered);
+        }
+
+        // Modals control
+        function openMappingModal(productId, productName) {
+            document.getElementById('mappingForm').reset();
+            document.getElementById('mappingProductId').value = productId;
+            document.getElementById('mappingProductName').value = productName;
+            populatePoolsSelect(); // Refresh pool selections
+            document.getElementById('mappingModal').classList.add('active');
+        }
+        
+        function closeMappingModal() {
+            document.getElementById('mappingModal').classList.remove('active');
+        }
+
+        // Sync Products Action
+        async function syncProducts() {
+            const btn = document.getElementById('btnSyncProducts');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang đồng bộ...';
+
+            try {
+                const response = await fetchWithAuth('/api/admin/products/sync/all', {
+                    method: 'POST'
+                });
+
+                if (response && response.ok) {
+                    const rowAdded = await response.json();
+                    showAlert(`Đồng bộ thành công! Đã thêm mới/cập nhật ${rowAdded} sản phẩm.`, 'success');
+                    loadProductsData();
+                } else {
+                    showAlert('Đồng bộ sản phẩm thất bại!', 'error');
+                }
+            } catch (error) {
+                console.error('Sync error:', error);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        }
+
+        // Form Submit
+        async function submitMapping(e) {
+            e.preventDefault();
+            const productId = parseInt(document.getElementById('mappingProductId').value);
+            const poolId = document.getElementById('mappingPoolId').value;
+            const eggType = parseInt(document.getElementById('mappingEggType').value);
+
+            if (!poolId) {
+                showAlert('Vui lòng chọn bể quà!', 'warning');
+                return;
+            }
+
+            try {
+                const response = await fetchWithAuth('/api/admin/product-egg-mappings', {
+                    method: 'POST',
+                    body: JSON.stringify({ productId, poolId, eggType })
+                });
+
+                if (response && response.ok) {
+                    showAlert('Tạo cấu hình ánh xạ thành công!', 'success');
+                    closeMappingModal();
+                    loadProductsData();
+                } else {
+                    const errorText = await response.text();
+                    showAlert('Thất bại: Có thể sản phẩm đã đạt tối đa 2 loại trứng!', 'error');
+                }
+            } catch (error) {
+                console.error('Mapping submit error:', error);
+            }
+        }
+
+        // Delete Mapping
+        async function deleteMapping(mappingId) {
+            if (!confirm('Bạn có chắc chắn muốn xóa cấu hình ánh xạ trứng này?')) return;
+
+            try {
+                const response = await fetchWithAuth(`/api/admin/product-egg-mappings/${mappingId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response && response.ok) {
+                    showAlert('Xóa quy tắc ánh xạ thành công!', 'success');
+                    loadProductsData();
+                } else {
+                    showAlert('Xóa thất bại!', 'error');
+                }
+            } catch (error) {
+                console.error('Delete mapping error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

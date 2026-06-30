@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments :: htmlHeader('Kho Quà - Gift Accounts')}"></head>
+
+<body>
+    <!-- Sidebar -->
+    <div th:replace="~{admin/fragments :: sidebar('gift-accounts')}"></div>
+
+    <!-- Main Content Wrapper -->
+    <div class="main-wrapper">
+        <!-- Topbar -->
+        <div th:replace="~{admin/fragments :: topbar('Kho Quà - Quản Lý Gift Accounts')}"></div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Filter & Action Card -->
+            <div class="card" style="margin-bottom: 24px;">
+                <div class="action-header">
+                    <div class="search-box">
+                        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                        <input type="text" id="giftSearch" class="search-input" placeholder="Tìm theo username, platform, tier..." onkeyup="filterGifts()">
+                    </div>
+                    
+                    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                        <div>
+                            <select id="statusFilter" class="form-select" style="padding: 10px 40px 10px 16px; width: 150px;" onchange="filterGifts()">
+                                <option value="ALL">Mọi trạng thái</option>
+                                <option value="AVAILABLE">AVAILABLE</option>
+                                <option value="ASSIGNED">ASSIGNED</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" onclick="openAddModal()">
+                            <i class="fa-solid fa-plus"></i> Thêm tài khoản
+                        </button>
+                        <button class="btn btn-secondary" onclick="openUploadModal()">
+                            <i class="fa-solid fa-file-excel"></i> Import Excel
+                        </button>
+                        <button class="btn btn-danger" id="btnBatchDelete" onclick="batchDelete()" disabled>
+                            <i class="fa-solid fa-trash-can"></i> Xóa hàng loạt
+                        </button>
+                        <button class="btn btn-secondary" onclick="loadGiftsData()">
+                            <i class="fa-solid fa-rotate"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table" id="giftsTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;"><input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)"></th>
+                                <th>Username / Account</th>
+                                <th>Password</th>
+                                <th>Nền tảng</th>
+                                <th>Tier</th>
+                                <th>Trạng Thái</th>
+                                <th>Token</th>
+                                <th>Ngày Gán</th>
+                                <th>Hành Động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="giftsTableBody">
+                            <tr>
+                                <td colspan="9" style="text-align: center; color: var(--text-secondary);">Đang tải dữ liệu...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Account Modal -->
+    <div class="modal-overlay" id="addGiftModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Thêm Tài Khoản Quà Tặng</h3>
+                <button class="modal-close" onclick="closeAddModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addGiftForm" onsubmit="submitAddGift(event)">
+                    <div class="form-group">
+                        <label class="form-label" for="addUsername">Tên đăng nhập / Code</label>
+                        <input class="form-input" type="text" id="addUsername" required placeholder="Nhập username đăng nhập">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="addPassword">Mật khẩu</label>
+                        <input class="form-input" type="text" id="addPassword" required placeholder="Nhập password">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="addPlatform">Nền tảng (Platform)</label>
+                        <input class="form-input" type="text" id="addPlatform" required placeholder="Ví dụ: Netflix, Spotify, Steam">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="addTier">Phân cấp (Tier)</label>
+                        <select id="addTier" class="form-select" required>
+                            <option value="A">Tier A</option>
+                            <option value="B">Tier B</option>
+                            <option value="C">Tier C</option>
+                            <option value="D">Tier D</option>
+                            <option value="E">Tier E</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="addStatus">Trạng thái ban đầu</label>
+                        <select id="addStatus" class="form-select" required>
+                            <option value="AVAILABLE">AVAILABLE (Có sẵn để phát)</option>
+                            <option value="ASSIGNED">ASSIGNED (Đã gán)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="addToken">Token quà tặng (tùy chọn)</label>
+                        <input class="form-input" type="text" id="addToken" placeholder="Nhập token game/voucher code">
+                    </div>
+                    <div class="modal-footer" style="padding-bottom: 0; padding-right: 0;">
+                        <button type="button" class="btn btn-secondary" onclick="closeAddModal()">Hủy</button>
+                        <button type="submit" class="btn btn-primary">Lưu lại</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Account Modal -->
+    <div class="modal-overlay" id="editGiftModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Cập Nhật Tài Khoản Quà</h3>
+                <button class="modal-close" onclick="closeEditModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="editGiftForm" onsubmit="submitEditGift(event)">
+                    <input type="hidden" id="editId">
+                    <div class="form-group">
+                        <label class="form-label" for="editUsername">Tên đăng nhập / Code</label>
+                        <input class="form-input" type="text" id="editUsername" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="editPassword">Mật khẩu</label>
+                        <input class="form-input" type="text" id="editPassword" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="editPlatform">Nền tảng (Platform)</label>
+                        <input class="form-input" type="text" id="editPlatform" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="editTier">Phân cấp (Tier)</label>
+                        <select id="editTier" class="form-select" required>
+                            <option value="A">Tier A</option>
+                            <option value="B">Tier B</option>
+                            <option value="C">Tier C</option>
+                            <option value="D">Tier D</option>
+                            <option value="E">Tier E</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="editStatus">Trạng thái</label>
+                        <select id="editStatus" class="form-select" required>
+                            <option value="AVAILABLE">AVAILABLE (Có sẵn để phát)</option>
+                            <option value="ASSIGNED">ASSIGNED (Đã gán)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="editToken">Token quà tặng</label>
+                        <input class="form-input" type="text" id="editToken">
+                    </div>
+                    <div class="modal-footer" style="padding-bottom: 0; padding-right: 0;">
+                        <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Hủy</button>
+                        <button type="submit" class="btn btn-primary">Cập nhật</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Excel Modal -->
+    <div class="modal-overlay" id="uploadModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Import Tài Khoản Từ Excel</h3>
+                <button class="modal-close" onclick="closeUploadModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="uploadForm" onsubmit="submitUpload(event)">
+                    <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                        <div class="upload-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+                        <div class="upload-text">Nhấp vào đây để chọn file Excel</div>
+                        <div class="upload-text" style="font-size:12px; opacity:0.8;">Hỗ trợ định dạng .xlsx</div>
+                        <div class="upload-highlight" id="fileNameDisplay">Chưa có file nào được chọn</div>
+                        <input type="file" id="fileInput" accept=".xlsx" style="display:none;" onchange="handleFileChange(this)">
+                    </div>
+                    <div class="modal-footer" style="padding-bottom: 0; padding-right: 0;">
+                        <button type="button" class="btn btn-secondary" onclick="closeUploadModal()">Hủy</button>
+                        <button type="submit" class="btn btn-primary" id="btnSubmitUpload" disabled>Bắt đầu Import</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script imports & Alert container -->
+    <div th:replace="~{admin/fragments :: footerScripts}"></div>
+
+    <script>
+        let allGifts = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadGiftsData();
+        });
+
+        async function loadGiftsData() {
+            try {
+                const response = await fetchWithAuth('/api/admin/gift-accounts');
+                if (response) {
+                    const data = await response.json();
+                    allGifts = data;
+                    renderGifts(data);
+                    document.getElementById('selectAll').checked = false;
+                    updateDeleteButtonState();
+                }
+            } catch (error) {
+                console.error('Error fetching gifts:', error);
+                showAlert('Lỗi khi tải danh sách quà tặng!', 'error');
+            }
+        }
+
+        function renderGifts(gifts) {
+            const tbody = document.getElementById('giftsTableBody');
+            tbody.innerHTML = '';
+
+            if (gifts.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-secondary);">Không có tài khoản nào được ghi nhận</td></tr>`;
+                return;
+            }
+
+            gifts.forEach(gift => {
+                const tr = document.createElement('tr');
+                
+                // Status badge
+                const statusBadge = gift.status === 'AVAILABLE'
+                    ? `<span class="badge badge-success">AVAILABLE</span>`
+                    : `<span class="badge badge-danger">ASSIGNED</span>`;
+
+                tr.innerHTML = `
+                    <td><input type="checkbox" class="row-checkbox" value="${gift.id}" onchange="updateDeleteButtonState()"></td>
+                    <td style="font-weight:600; color:var(--text-primary);">${gift.username || '-'}</td>
+                    <td>${gift.password || '-'}</td>
+                    <td>${gift.platform || '-'}</td>
+                    <td><span class="badge badge-info">${gift.tier || '-'}</span></td>
+                    <td>${statusBadge}</td>
+                    <td style="font-family:monospace; font-size:12px;">${gift.token || '-'}</td>
+                    <td>${formatDateTime(gift.assignedAt)}</td>
+                    <td>
+                        <div style="display:flex; gap:6px;">
+                            <button class="btn btn-secondary" style="padding: 6px 12px; font-size:12px;" 
+                                onclick="openEditModal('${gift.id}', '${gift.username}', '${gift.password}', '${gift.platform}', '${gift.tier}', '${gift.status}', '${gift.token || ''}')">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                            <button class="btn btn-danger" style="padding: 6px 12px; font-size:12px;" onclick="deleteSingle('${gift.id}')">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterGifts() {
+            const query = document.getElementById('giftSearch').value.toLowerCase().trim();
+            const statusFilter = document.getElementById('statusFilter').value;
+
+            const filtered = allGifts.filter(gift => {
+                const usernameMatch = (gift.username || '').toLowerCase().includes(query);
+                const platformMatch = (gift.platform || '').toLowerCase().includes(query);
+                const tierMatch = (gift.tier || '').toLowerCase().includes(query);
+                
+                const statusMatch = statusFilter === 'ALL' || gift.status === statusFilter;
+
+                return (usernameMatch || platformMatch || tierMatch) && statusMatch;
+            });
+
+            renderGifts(filtered);
+        }
+
+        // Checkbox mechanisms
+        function toggleSelectAll(checkbox) {
+            const rowCheckboxes = document.querySelectorAll('.row-checkbox');
+            rowCheckboxes.forEach(cb => cb.checked = checkbox.checked);
+            updateDeleteButtonState();
+        }
+
+        function updateDeleteButtonState() {
+            const checkedCount = document.querySelectorAll('.row-checkbox:checked').length;
+            const btn = document.getElementById('btnBatchDelete');
+            btn.disabled = checkedCount === 0;
+        }
+
+        // Modals control
+        function openAddModal() {
+            document.getElementById('addGiftForm').reset();
+            document.getElementById('addGiftModal').classList.add('active');
+        }
+        function closeAddModal() {
+            document.getElementById('addGiftModal').classList.remove('active');
+        }
+
+        function openEditModal(id, username, password, platform, tier, status, token) {
+            document.getElementById('editId').value = id;
+            document.getElementById('editUsername').value = username;
+            document.getElementById('editPassword').value = password;
+            document.getElementById('editPlatform').value = platform;
+            document.getElementById('editTier').value = tier;
+            document.getElementById('editStatus').value = status;
+            document.getElementById('editToken').value = token;
+            
+            document.getElementById('editGiftModal').classList.add('active');
+        }
+        function closeEditModal() {
+            document.getElementById('editGiftModal').classList.remove('active');
+        }
+
+        function openUploadModal() {
+            document.getElementById('uploadForm').reset();
+            document.getElementById('fileNameDisplay').textContent = 'Chưa có file nào được chọn';
+            document.getElementById('btnSubmitUpload').disabled = true;
+            document.getElementById('uploadModal').classList.add('active');
+        }
+        function closeUploadModal() {
+            document.getElementById('uploadModal').classList.remove('active');
+        }
+
+        function handleFileChange(input) {
+            const nameDisplay = document.getElementById('fileNameDisplay');
+            const submitBtn = document.getElementById('btnSubmitUpload');
+            if (input.files && input.files.length > 0) {
+                nameDisplay.textContent = input.files[0].name;
+                submitBtn.disabled = false;
+            } else {
+                nameDisplay.textContent = 'Chưa có file nào được chọn';
+                submitBtn.disabled = true;
+            }
+        }
+
+        // API Submissions
+        async function submitAddGift(e) {
+            e.preventDefault();
+            const username = document.getElementById('addUsername').value.trim();
+            const password = document.getElementById('addPassword').value.trim();
+            const platform = document.getElementById('addPlatform').value.trim();
+            const tier = document.getElementById('addTier').value;
+            const status = document.getElementById('addStatus').value;
+            const token = document.getElementById('addToken').value.trim();
+
+            try {
+                const response = await fetchWithAuth('/api/admin/gift-accounts/single', {
+                    method: 'POST',
+                    body: JSON.stringify({ username, password, platform, tier, status, token })
+                });
+
+                if (response && response.ok) {
+                    showAlert('Thêm tài khoản quà tặng thành công!', 'success');
+                    closeAddModal();
+                    loadGiftsData();
+                } else {
+                    showAlert('Thêm tài khoản thất bại!', 'error');
+                }
+            } catch (error) {
+                console.error('Error adding account:', error);
+            }
+        }
+
+        async function submitEditGift(e) {
+            e.preventDefault();
+            const id = document.getElementById('editId').value;
+            const username = document.getElementById('editUsername').value.trim();
+            const password = document.getElementById('editPassword').value.trim();
+            const platform = document.getElementById('editPlatform').value.trim();
+            const tier = document.getElementById('editTier').value;
+            const status = document.getElementById('editStatus').value;
+            const token = document.getElementById('editToken').value.trim();
+
+            try {
+                const response = await fetchWithAuth(`/api/admin/gift-accounts/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ username, password, platform, tier, status, token })
+                });
+
+                if (response && response.ok) {
+                    showAlert('Cập nhật tài khoản quà tặng thành công!', 'success');
+                    closeEditModal();
+                    loadGiftsData();
+                } else {
+                    showAlert('Cập nhật thất bại!', 'error');
+                }
+            } catch (error) {
+                console.error('Error editing account:', error);
+            }
+        }
+
+        async function submitUpload(e) {
+            e.preventDefault();
+            const fileInput = document.getElementById('fileInput');
+            if (fileInput.files.length === 0) return;
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const response = await fetchWithAuth('/api/admin/gift-accounts/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response && response.ok) {
+                    const resData = await response.json();
+                    showAlert(`Import thành công! Đã thêm ${resData.totalImported} tài khoản.`, 'success');
+                    closeUploadModal();
+                    loadGiftsData();
+                } else {
+                    showAlert('Import thất bại. Kiểm tra cấu trúc file Excel!', 'error');
+                }
+            } catch (error) {
+                console.error('Import error:', error);
+            }
+        }
+
+        async function deleteSingle(id) {
+            if (!confirm('Bạn có chắc chắn muốn xóa tài khoản này không? Mọi thông tin liên quan sẽ bị dọn sạch.')) return;
+            
+            try {
+                const response = await fetchWithAuth('/api/admin/gift-accounts/batch-delete', {
+                    method: 'POST',
+                    body: JSON.stringify({ ids: [id] })
+                });
+
+                if (response && response.ok) {
+                    showAlert('Xóa tài khoản thành công!', 'success');
+                    loadGiftsData();
+                } else {
+                    showAlert('Xóa tài khoản thất bại!', 'error');
+                }
+            } catch (error) {
+                console.error('Delete error:', error);
+            }
+        }
+
+        async function batchDelete() {
+            const selectedBoxes = document.querySelectorAll('.row-checkbox:checked');
+            if (selectedBoxes.length === 0) return;
+
+            if (!confirm(`Bạn có chắc chắn muốn xóa ${selectedBoxes.length} tài khoản đã chọn?`)) return;
+
+            const ids = Array.from(selectedBoxes).map(cb => cb.value);
+
+            try {
+                const response = await fetchWithAuth('/api/admin/gift-accounts/batch-delete', {
+                    method: 'POST',
+                    body: JSON.stringify({ ids })
+                });
+
+                if (response && response.ok) {
+                    showAlert('Xóa hàng loạt tài khoản thành công!', 'success');
+                    loadGiftsData();
+                } else {
+                    showAlert('Xóa thất bại!', 'error');
+                }
+            } catch (error) {
+                console.error('Batch delete error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

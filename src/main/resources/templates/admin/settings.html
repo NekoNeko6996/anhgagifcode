@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments :: htmlHeader('Đổi Mật Khẩu Admin')}"></head>
+
+<body>
+    <!-- Sidebar -->
+    <div th:replace="~{admin/fragments :: sidebar('settings')}"></div>
+
+    <!-- Main Content Wrapper -->
+    <div class="main-wrapper">
+        <!-- Topbar -->
+        <div th:replace="~{admin/fragments :: topbar('Cấu Hình Hệ Thống & Bảo Mật')}"></div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <div class="card" style="max-width: 600px; margin: 0 auto;">
+                <h3 style="margin-bottom: 20px; font-size:18px; border-bottom: 1px solid var(--border-color); padding-bottom:12px;">
+                    <i class="fa-solid fa-key"></i> Đổi Thông Tin Đăng Nhập Admin
+                </h3>
+                
+                <form id="settingsForm" onsubmit="submitCredentials(event)">
+                    <div class="form-group">
+                        <label class="form-label">Tên đăng nhập hiện tại</label>
+                        <input class="form-input" type="text" id="currentUsername" readonly style="opacity: 0.7;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="oldPassword">Mật khẩu hiện tại (bắt buộc)</label>
+                        <input class="form-input" type="password" id="oldPassword" required placeholder="Nhập mật khẩu hiện tại để xác thực">
+                    </div>
+
+                    <div style="border-top: 1px dashed var(--border-color); margin: 24px 0; padding-top: 16px;">
+                        <h4 style="font-size:14px; margin-bottom:16px; color:var(--text-secondary);">Thông tin muốn thay đổi (Để trống nếu không muốn đổi)</h4>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="newUsername">Tên đăng nhập mới</label>
+                        <input class="form-input" type="text" id="newUsername" placeholder="Nhập username mới mong muốn">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="newPassword">Mật khẩu mới</label>
+                        <input class="form-input" type="password" id="newPassword" placeholder="Nhập mật khẩu mới">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="confirmNewPassword">Xác nhận mật khẩu mới</label>
+                        <input class="form-input" type="password" id="confirmNewPassword" placeholder="Xác nhận mật khẩu mới">
+                    </div>
+
+                    <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:24px;">
+                        <button type="reset" class="btn btn-secondary" onclick="document.getElementById('currentUsername').value = localStorage.getItem('admin_username')">Nhập lại</button>
+                        <button type="submit" class="btn btn-primary">Lưu thay đổi</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script imports & Alert container -->
+    <div th:replace="~{admin/fragments :: footerScripts}"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const currentU = localStorage.getItem('admin_username') || 'Admin';
+            document.getElementById('currentUsername').value = currentU;
+        });
+
+        async function submitCredentials(e) {
+            e.preventDefault();
+            
+            const oldPassword = document.getElementById('oldPassword').value;
+            const newUsername = document.getElementById('newUsername').value.trim();
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmNewPassword = document.getElementById('confirmNewPassword').value;
+
+            if (newPassword && newPassword !== confirmNewPassword) {
+                showAlert('Mật khẩu mới và mật khẩu xác nhận không khớp!', 'error');
+                return;
+            }
+
+            const requestBody = { oldPassword };
+            if (newUsername) requestBody.newUsername = newUsername;
+            if (newPassword) requestBody.newPassword = newPassword;
+
+            if (!newUsername && !newPassword) {
+                showAlert('Bạn phải nhập ít nhất Username mới hoặc Mật khẩu mới để thay đổi!', 'warning');
+                return;
+            }
+
+            try {
+                const response = await fetchWithAuth('/api/admin/auth/credentials', {
+                    method: 'PUT',
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (response && response.ok) {
+                    showAlert('Cập nhật thông tin đăng nhập thành công! Vui lòng đăng nhập lại.', 'success');
+                    
+                    // Clear token and redirect to login
+                    setTimeout(() => {
+                        logoutAdmin();
+                    }, 1200);
+                } else {
+                    const errorText = await response.text();
+                    showAlert('Cập nhật thất bại: Mật khẩu cũ không chính xác!', 'error');
+                }
+            } catch (error) {
+                console.error('Error updating credentials:', error);
+                showAlert('Lỗi khi gửi yêu cầu đổi thông tin!', 'error');
+            }
+        }
+    </script>
+</body>
+</html>

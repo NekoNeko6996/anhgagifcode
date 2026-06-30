@@ -15,4 +15,6 @@ public interface KiotvietOrderPersistencePort {
     List<KiotvietOrder> findAll();
 
     List<KiotvietOrder> findByCustomerCode(String customerCode);
+
+    List<String> findDistinctPrefixes();
 }

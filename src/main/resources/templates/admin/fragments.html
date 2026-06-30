@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<!-- Header Fragment -->
+<head th:fragment="htmlHeader(title)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title} + ' - Sapo Webhook Admin'"></title>
+    <link rel="stylesheet" th:href="@{/css/admin.css}">
+    <!-- Inline Lucide Icons using simple SVG icons or FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+
+    <!-- Sidebar Fragment -->
+    <div th:fragment="sidebar(activePage)" class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <i class="fa-solid fa-gamepad"></i>
+            <span>Egg Hatch Admin</span>
+        </div>
+        <ul class="sidebar-menu">
+            <li class="sidebar-item" th:classappend="${activePage == 'dashboard' ? 'active' : ''}">
+                <a th:href="@{/admin/dashboard}">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Đơn Hàng & Thống Kê</span>
+                </a>
+            </li>
+            <li class="sidebar-item" th:classappend="${activePage == 'eggs' ? 'active' : ''}">
+                <a th:href="@{/admin/eggs}">
+                    <i class="fa-solid fa-egg"></i>
+                    <span>Quản Lý Trứng</span>
+                </a>
+            </li>
+            <li class="sidebar-item" th:classappend="${activePage == 'customers' ? 'active' : ''}">
+                <a th:href="@{/admin/customers}">
+                    <i class="fa-solid fa-users"></i>
+                    <span>Quản Lý Khách Hàng</span>
+                </a>
+            </li>
+            <li class="sidebar-item" th:classappend="${activePage == 'gift-accounts' ? 'active' : ''}">
+                <a th:href="@{/admin/gift-accounts}">
+                    <i class="fa-solid fa-vault"></i>
+                    <span>Kho Quà (Accounts)</span>
+                </a>
+            </li>
+            <li class="sidebar-item" th:classappend="${activePage == 'gift-pools' ? 'active' : ''}">
+                <a th:href="@{/admin/gift-pools}">
+                    <i class="fa-solid fa-layer-group"></i>
+                    <span>Bể Quà (Gift Pools)</span>
+                </a>
+            </li>
+            <li class="sidebar-item" th:classappend="${activePage == 'products' ? 'active' : ''}">
+                <a th:href="@{/admin/products}">
+                    <i class="fa-solid fa-box-open"></i>
+                    <span>Sản Phẩm & Ánh Xạ</span>
+                </a>
+            </li>
+            <li class="sidebar-item" th:classappend="${activePage == 'settings' ? 'active' : ''}">
+                <a th:href="@{/admin/settings}">
+                    <i class="fa-solid fa-gears"></i>
+                    <span>Đổi Mật Khẩu Admin</span>
+                </a>
+            </li>
+        </ul>
+        <div class="sidebar-footer">
+            <button class="btn-logout" onclick="logoutAdmin()">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                <span>Đăng xuất</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Topbar Fragment -->
+    <div th:fragment="topbar(title)" class="topbar">
+        <h2 class="page-title" th:text="${title}"></h2>
+        <div class="user-profile">
+            <div class="user-avatar" id="avatarLetter">A</div>
+            <div class="user-info">
+                <div class="user-name" id="profileUsername">Admin</div>
+                <div class="user-role">Quản trị viên</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer Scripts Fragment -->
+    <div th:fragment="footerScripts">
+        <div class="alerts-container" id="alertsContainer"></div>
+        <script>
+            // Check auth status
+            const token = localStorage.getItem('admin_token');
+            const username = localStorage.getItem('admin_username') || 'Admin';
+            
+            // If not login page, redirect if token not present
+            if (!window.location.pathname.endsWith('/admin/login')) {
+                if (!token) {
+                    window.location.href = '/admin/login';
+                } else {
+                    document.addEventListener('DOMContentLoaded', () => {
+                        const avatarLetter = document.getElementById('avatarLetter');
+                        const profileUsername = document.getElementById('profileUsername');
+                        if (avatarLetter) avatarLetter.textContent = username.substring(0, 1).toUpperCase();
+                        if (profileUsername) profileUsername.textContent = username;
+                    });
+                }
+            }
+
+            function logoutAdmin() {
+                localStorage.removeItem('admin_token');
+                localStorage.removeItem('admin_username');
+                window.location.href = '/admin/login';
+            }
+
+            // Wrapper function for fetching APIs with token authentication
+            async function fetchWithAuth(url, options = {}) {
+                const token = localStorage.getItem('admin_token');
+                if (!token) {
+                    window.location.href = '/admin/login';
+                    return null;
+                }
+
+                // Initialize headers
+                options.headers = options.headers || {};
+                
+                // Add Authorization header
+                if (!(options.body instanceof FormData)) {
+                    options.headers['Content-Type'] = options.headers['Content-Type'] || 'application/json';
+                }
+                options.headers['Authorization'] = `Bearer ${token}`;
+
+                try {
+                    const response = await fetch(url, options);
+                    
+                    if (response.status === 401 || response.status === 403) {
+                        // Unauthorized or Forbidden, clear token and redirect
+                        localStorage.removeItem('admin_token');
+                        localStorage.removeItem('admin_username');
+                        window.location.href = '/admin/login';
+                        return null;
+                    }
+                    
+                    return response;
+                } catch (error) {
+                    console.error('Request failed:', error);
+                    showAlert('Lỗi kết nối máy chủ!', 'error');
+                    throw error;
+                }
+            }
+
+            // Show Toast Alert
+            function showAlert(message, type = 'success') {
+                const container = document.getElementById('alertsContainer');
+                if (!container) return;
+
+                const alert = document.createElement('div');
+                alert.className = `alert alert-${type}`;
+                
+                const icon = document.createElement('i');
+                icon.className = type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-exclamation';
+                
+                const text = document.createElement('span');
+                text.textContent = message;
+
+                alert.appendChild(icon);
+                alert.appendChild(text);
+                container.appendChild(alert);
+
+                // Auto dismiss after 3 seconds
+                setTimeout(() => {
+                    alert.style.animation = 'slideIn 0.3s ease reverse forwards';
+                    setTimeout(() => {
+                        alert.remove();
+                    }, 300);
+                }, 3000);
+            }
+
+            // Format datetime helper
+            function formatDateTime(isoString) {
+                if (!isoString) return '-';
+                const date = new Date(isoString);
+                const pad = (n) => n < 10 ? '0' + n : n;
+                return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+            }
+        </script>
+    </div>
+
+</body>
+</html>

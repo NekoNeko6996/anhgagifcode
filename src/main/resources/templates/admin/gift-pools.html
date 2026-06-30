@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments :: htmlHeader('Bể Quà - Gift Pools')}"></head>
+
+<body>
+    <!-- Sidebar -->
+    <div th:replace="~{admin/fragments :: sidebar('gift-pools')}"></div>
+
+    <!-- Main Content Wrapper -->
+    <div class="main-wrapper">
+        <!-- Topbar -->
+        <div th:replace="~{admin/fragments :: topbar('Bể Quà - Cấu Hình Gift Pools')}"></div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Action Header Card -->
+            <div class="card" style="margin-bottom: 24px;">
+                <div class="action-header">
+                    <div class="search-box">
+                        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                        <input type="text" id="poolSearch" class="search-input" placeholder="Tìm theo tên bể, tier..." onkeyup="filterPools()">
+                    </div>
+                    
+                    <button class="btn btn-primary" onclick="openAddPoolModal()">
+                        <i class="fa-solid fa-plus"></i> Tạo bể quà mới
+                    </button>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table" id="poolsTable">
+                        <thead>
+                            <tr>
+                                <th>ID Bể Quà</th>
+                                <th>Tên Bể Quà</th>
+                                <th>Phân cấp (Tier)</th>
+                                <th>Ngày Tạo</th>
+                                <th>Hành Động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="poolsTableBody">
+                            <tr>
+                                <td colspan="5" style="text-align: center; color: var(--text-secondary);">Đang tải dữ liệu...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Pool Modal -->
+    <div class="modal-overlay" id="addPoolModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Tạo Bể Quà Mới</h3>
+                <button class="modal-close" onclick="closeAddPoolModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addPoolForm" onsubmit="submitAddPool(event)">
+                    <div class="form-group">
+                        <label class="form-label" for="addPoolName">Tên bể quà</label>
+                        <input class="form-input" type="text" id="addPoolName" required placeholder="Ví dụ: Bể Quà VIP Netflix">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="addPoolTier">Phân cấp (Tier)</label>
+                        <select id="addPoolTier" class="form-select" required>
+                            <option value="A">Tier A</option>
+                            <option value="B">Tier B</option>
+                            <option value="C">Tier C</option>
+                            <option value="D">Tier D</option>
+                            <option value="E">Tier E</option>
+                        </select>
+                    </div>
+                    <div class="modal-footer" style="padding-bottom: 0; padding-right: 0;">
+                        <button type="button" class="btn btn-secondary" onclick="closeAddPoolModal()">Hủy</button>
+                        <button type="submit" class="btn btn-primary">Tạo mới</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Pool Modal -->
+    <div class="modal-overlay" id="editPoolModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Chỉnh Sửa Bể Quà</h3>
+                <button class="modal-close" onclick="closeEditPoolModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="editPoolForm" onsubmit="submitEditPool(event)">
+                    <input type="hidden" id="editPoolId">
+                    <div class="form-group">
+                        <label class="form-label" for="editPoolName">Tên bể quà</label>
+                        <input class="form-input" type="text" id="editPoolName" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="editPoolTier">Phân cấp (Tier)</label>
+                        <select id="editPoolTier" class="form-select" required>
+                            <option value="A">Tier A</option>
+                            <option value="B">Tier B</option>
+                            <option value="C">Tier C</option>
+                            <option value="D">Tier D</option>
+                            <option value="E">Tier E</option>
+                        </select>
+                    </div>
+                    <div class="modal-footer" style="padding-bottom: 0; padding-right: 0;">
+                        <button type="button" class="btn btn-secondary" onclick="closeEditPoolModal()">Hủy</button>
+                        <button type="submit" class="btn btn-primary">Cập nhật</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pool Details Modal -->
+    <div class="modal-overlay" id="poolDetailsModal" style="z-index: 1010;">
+        <div class="modal-content" style="max-width: 750px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="detailsModalTitle">Chi Tiết Bể Quà</h3>
+                <button class="modal-close" onclick="closeDetailsModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 20px; font-size:14px; display:flex; justify-content:space-between;">
+                    <div><strong>Tên bể:</strong> <span id="lblPoolName" style="color:var(--color-secondary);"></span></div>
+                    <div><strong>Phân cấp:</strong> <span id="lblPoolTier" class="badge badge-info"></span></div>
+                </div>
+
+                <!-- Link accounts section -->
+                <div style="margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 16px;">
+                    <h4 style="margin-bottom:12px; font-size:14px;">Thêm Tài Khoản Vào Bể Quà</h4>
+                    <div style="display:flex; gap:12px;">
+                        <select id="assignableAccountsSelect" class="form-select" style="flex:1;">
+                            <option value="">-- Đang tải tài khoản khả dụng --</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="assignAccountToPool()">
+                            <i class="fa-solid fa-plus"></i> Thêm vào
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Assigned accounts list -->
+                <h4 style="margin-bottom: 12px; font-size: 14px;">Danh Sách Tài Khoản Trong Bể</h4>
+                <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Username / Account</th>
+                                <th>Mật khẩu</th>
+                                <th>Nền tảng</th>
+                                <th>Trạng Thái</th>
+                                <th>Hành Động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="poolAccountsBody">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeDetailsModal()">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script imports & Alert container -->
+    <div th:replace="~{admin/fragments :: footerScripts}"></div>
+
+    <script>
+        let allPools = [];
+        let currentPoolId = '';
+        let currentPoolTier = '';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadPoolsData();
+        });
+
+        async function loadPoolsData() {
+            try {
+                const response = await fetchWithAuth('/api/admin/gift-pools');
+                if (response) {
+                    const data = await response.json();
+                    allPools = data;
+                    renderPools(data);
+                }
+            } catch (error) {
+                console.error('Error fetching pools:', error);
+                showAlert('Lỗi khi tải danh sách bể quà!', 'error');
+            }
+        }
+
+        function renderPools(pools) {
+            const tbody = document.getElementById('poolsTableBody');
+            tbody.innerHTML = '';
+
+            if (pools.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">Không có bể quà nào được cấu hình</td></tr>`;
+                return;
+            }
+
+            pools.forEach(pool => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-family:monospace; font-size:12px; color:var(--text-secondary);">${pool.id}</td>
+                    <td style="font-weight:600; color:var(--text-primary);">${pool.poolName}</td>
+                    <td><span class="badge badge-info">Tier ${pool.tier}</span></td>
+                    <td>${formatDateTime(pool.createdAt)}</td>
+                    <td>
+                        <div style="display:flex; gap:6px;">
+                            <button class="btn btn-secondary" style="padding: 6px 12px; font-size:12px;" onclick="openDetailsModal('${pool.id}', '${pool.poolName}', '${pool.tier}')">
+                                <i class="fa-solid fa-eye"></i> Chi tiết
+                            </button>
+                            <button class="btn btn-secondary" style="padding: 6px 12px; font-size:12px;" onclick="openEditPoolModal('${pool.id}', '${pool.poolName}', '${pool.tier}')">
+                                <i class="fa-solid fa-pen"></i> Sửa
+                            </button>
+                            <button class="btn btn-danger" style="padding: 6px 12px; font-size:12px;" onclick="deletePool('${pool.id}')">
+                                <i class="fa-solid fa-trash"></i> Xóa
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterPools() {
+            const query = document.getElementById('poolSearch').value.toLowerCase().trim();
+            const filtered = allPools.filter(pool => {
+                const nameMatch = (pool.poolName || '').toLowerCase().includes(query);
+                const tierMatch = (pool.tier || '').toLowerCase().includes(query);
+                return nameMatch || tierMatch;
+            });
+            renderPools(filtered);
+        }
+
+        // Modals control
+        function openAddPoolModal() {
+            document.getElementById('addPoolForm').reset();
+            document.getElementById('addPoolModal').classList.add('active');
+        }
+        function closeAddPoolModal() {
+            document.getElementById('addPoolModal').classList.remove('active');
+        }
+
+        function openEditPoolModal(id, name, tier) {
+            document.getElementById('editPoolId').value = id;
+            document.getElementById('editPoolName').value = name;
+            document.getElementById('editPoolTier').value = tier;
+            document.getElementById('editPoolModal').classList.add('active');
+        }
+        function closeEditPoolModal() {
+            document.getElementById('editPoolModal').classList.remove('active');
+        }
+
+        // Detail and Linkage Modal
+        async function openDetailsModal(id, name, tier) {
+            currentPoolId = id;
+            currentPoolTier = tier;
+            
+            document.getElementById('lblPoolName').textContent = name;
+            document.getElementById('lblPoolTier').textContent = `Tier ${tier}`;
+            
+            document.getElementById('poolDetailsModal').classList.add('active');
+            
+            // Fetch pool details
+            await refreshPoolDetails();
+            // Fetch assignable accounts
+            await loadAssignableAccounts(tier);
+        }
+
+        function closeDetailsModal() {
+            document.getElementById('poolDetailsModal').classList.remove('active');
+            loadPoolsData(); // Reload stats or counts in table if needed
+        }
+
+        async function refreshPoolDetails() {
+            const tbody = document.getElementById('poolAccountsBody');
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">Đang tải...</td></tr>`;
+
+            try {
+                const response = await fetchWithAuth(`/api/admin/gift-pools/${currentPoolId}`);
+                if (response && response.ok) {
+                    const pool = await response.json();
+                    tbody.innerHTML = '';
+
+                    if (!pool.accounts || pool.accounts.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-secondary);">Bể quà trống (chưa liên kết tài khoản nào)</td></tr>`;
+                        return;
+                    }
+
+                    pool.accounts.forEach(acc => {
+                        const tr = document.createElement('tr');
+                        const statusBadge = acc.status === 'AVAILABLE'
+                            ? `<span class="badge badge-success">AVAILABLE</span>`
+                            : `<span class="badge badge-danger">ASSIGNED</span>`;
+
+                        tr.innerHTML = `
+                            <td>${acc.username}</td>
+                            <td>${acc.password}</td>
+                            <td>${acc.platform}</td>
+                            <td>${statusBadge}</td>
+                            <td>
+                                <button class="btn btn-danger" style="padding: 4px 8px; font-size:11px;" onclick="removeAccountFromPool('${acc.id}')">
+                                    <i class="fa-solid fa-link-slash"></i> Gỡ
+                                </button>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+            } catch (error) {
+                console.error('Error fetching pool details:', error);
+            }
+        }
+
+        async function loadAssignableAccounts(tier) {
+            const select = document.getElementById('assignableAccountsSelect');
+            select.innerHTML = '<option value="">-- Đang tải tài khoản --</option>';
+
+            try {
+                // Fetch all gift accounts and filter those which are AVAILABLE, match the tier, and NOT currently in any pool
+                const response = await fetchWithAuth('/api/admin/gift-accounts');
+                if (response && response.ok) {
+                    const allAccounts = await response.json();
+                    
+                    // Filter: available and matching tier
+                    const filterAccounts = allAccounts.filter(acc => acc.status === 'AVAILABLE' && acc.tier === tier);
+                    
+                    select.innerHTML = '';
+                    
+                    if (filterAccounts.length === 0) {
+                        select.innerHTML = '<option value="">Không có tài khoản AVAILABLE nào thuộc Tier ' + tier + ' trong kho</option>';
+                        return;
+                    }
+
+                    select.innerHTML = '<option value="">Chọn tài khoản để thêm...</option>';
+                    filterAccounts.forEach(acc => {
+                        const opt = document.createElement('option');
+                        opt.value = acc.id;
+                        opt.textContent = `${acc.username} [${acc.platform}]`;
+                        select.appendChild(opt);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading assignable accounts:', error);
+            }
+        }
+
+        // Submissions
+        async function submitAddPool(e) {
+            e.preventDefault();
+            const poolName = document.getElementById('addPoolName').value.trim();
+            const tier = document.getElementById('addPoolTier').value;
+
+            try {
+                const response = await fetchWithAuth('/api/admin/gift-pools', {
+                    method: 'POST',
+                    body: JSON.stringify({ poolName, tier })
+                });
+
+                if (response && response.ok) {
+                    showAlert('Tạo bể quà mới thành công!', 'success');
+                    closeAddPoolModal();
+                    loadPoolsData();
+                } else {
+                    showAlert('Tạo bể quà thất bại!', 'error');
+                }
+            } catch (error) {
+                console.error('Error creating pool:', error);
+            }
+        }
+
+        async function submitEditPool(e) {
+            e.preventDefault();
+            const id = document.getElementById('editPoolId').value;
+            const poolName = document.getElementById('editPoolName').value.trim();
+            const tier = document.getElementById('editPoolTier').value;
+
+            try {
+                const response = await fetchWithAuth(`/api/admin/gift-pools/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ poolName, tier })
+                });
+
+                if (response && response.ok) {
+                    showAlert('Cập nhật bể quà thành công!', 'success');
+                    closeEditPoolModal();
+                    loadPoolsData();
+                } else {
+                    showAlert('Cập nhật thất bại!', 'error');
+                }
+            } catch (error) {
+                console.error('Error updating pool:', error);
+            }
+        }
+
+        async function deletePool(id) {
+            if (!confirm('Bạn có chắc muốn xóa bể quà này? Chỉ xóa được khi bể không chứa trứng đang ấp.')) return;
+
+            try {
+                const response = await fetchWithAuth(`/api/admin/gift-pools/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (response && response.ok) {
+                    showAlert('Xóa bể quà thành công!', 'success');
+                    loadPoolsData();
+                } else {
+                    const errText = await response.text();
+                    showAlert('Không thể xóa: Bể quà có thể đang chứa trứng liên kết!', 'error');
+                }
+            } catch (error) {
+                console.error('Delete pool error:', error);
+            }
+        }
+
+        async function assignAccountToPool() {
+            const select = document.getElementById('assignableAccountsSelect');
+            const accountId = select.value;
+            if (!accountId) {
+                showAlert('Vui lòng chọn tài khoản!', 'warning');
+                return;
+            }
+
+            try {
+                const response = await fetchWithAuth('/api/admin/gift-pools/add-account', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        giftPoolId: currentPoolId,
+                        giftAccountId: accountId
+                    })
+                });
+
+                if (response && response.ok) {
+                    showAlert('Thêm tài khoản vào bể quà thành công!', 'success');
+                    await refreshPoolDetails();
+                    await loadAssignableAccounts(currentPoolTier);
+                } else {
+                    showAlert('Thêm tài khoản thất bại!', 'error');
+                }
+            } catch (error) {
+                console.error('Error adding account to pool:', error);
+            }
+        }
+
+        async function removeAccountFromPool(accountId) {
+            if (!confirm('Bạn có chắc chắn muốn gỡ tài khoản này khỏi bể quà?')) return;
+
+            try {
+                const response = await fetchWithAuth('/api/admin/gift-pools/remove-accounts', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        giftPoolId: currentPoolId,
+                        giftAccountIds: [accountId]
+                    })
+                });
+
+                if (response && response.ok) {
+                    showAlert('Gỡ tài khoản khỏi bể quà thành công!', 'success');
+                    await refreshPoolDetails();
+                    await loadAssignableAccounts(currentPoolTier);
+                } else {
+                    showAlert('Gỡ tài khoản thất bại!', 'error');
+                }
+            } catch (error) {
+                console.error('Error removing account:', error);
+            }
+        }
+    </script>
+</body>
+</html>

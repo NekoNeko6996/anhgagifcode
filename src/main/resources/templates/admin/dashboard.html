@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments :: htmlHeader('Đơn Hàng & Thống Kê')}"></head>
+
+<body>
+    <!-- Sidebar -->
+    <div th:replace="~{admin/fragments :: sidebar('dashboard')}"></div>
+
+    <!-- Main Content Wrapper -->
+    <div class="main-wrapper">
+        <!-- Topbar -->
+        <div th:replace="~{admin/fragments :: topbar('Đơn Hàng KiotViet & Thống Kê Tổng Quan')}"></div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Stats Row -->
+            <div class="stats-grid">
+                <div class="card">
+                    <div class="card-title">Tổng Đơn Hàng</div>
+                    <div class="card-value" id="statOrders">-</div>
+                    <div class="card-desc">Đơn hàng đồng bộ từ KiotViet</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Tổng Quả Trứng</div>
+                    <div class="card-value" id="statEggs">-</div>
+                    <div class="card-desc">Số lượng trứng đã phát hành</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Tài Khoản Quà Sẵn Có</div>
+                    <div class="card-value" id="statAvailableGifts">-</div>
+                    <div class="card-desc">Tài khoản vip còn trong kho</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Tổng Khách Hàng</div>
+                    <div class="card-value" id="statCustomers">-</div>
+                    <div class="card-desc">Khách hàng được ghi nhận</div>
+                </div>
+            </div>
+
+            <!-- Orders Table Card -->
+            <div class="card" style="margin-bottom: 24px;">
+                <div class="action-header">
+                    <div class="search-box">
+                        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                        <input type="text" id="orderSearch" class="search-input" placeholder="Tìm kiếm đơn hàng, khách hàng..." onkeyup="filterOrders()">
+                    </div>
+                    <button class="btn btn-secondary" onclick="loadDashboardData()">
+                        <i class="fa-solid fa-rotate"></i> Làm mới
+                    </button>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table" id="ordersTable">
+                        <thead>
+                            <tr>
+                                <th>Mã Đơn Hàng</th>
+                                <th>Khách Hàng</th>
+                                <th>Trạng Thái Giao Hàng</th>
+                                <th>Tổng Tiền (VND)</th>
+                                <th>Sản Phẩm Trong Đơn</th>
+                                <th>Ngày Tạo Đơn</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersTableBody">
+                            <tr>
+                                <td colspan="6" style="text-align: center; color: var(--text-secondary);">Đang tải dữ liệu...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script imports & Alert container -->
+    <div th:replace="~{admin/fragments :: footerScripts}"></div>
+
+    <script>
+        let allOrders = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDashboardData();
+        });
+
+        async function loadDashboardData() {
+            try {
+                // Fetch stats concurrently
+                const ordersPromise = fetchWithAuth('/api/admin/orders');
+                const eggsPromise = fetchWithAuth('/api/admin/eggs');
+                const giftsPromise = fetchWithAuth('/api/admin/gift-accounts');
+                const customersPromise = fetchWithAuth('/api/admin/customers');
+
+                const [ordersRes, eggsRes, giftsRes, customersRes] = await Promise.all([
+                    ordersPromise, eggsPromise, giftsPromise, customersPromise
+                ]);
+
+                if (ordersRes && eggsRes && giftsRes && customersRes) {
+                    const orders = await ordersRes.json();
+                    const eggs = await eggsRes.json();
+                    const gifts = await giftsRes.json();
+                    const customers = await customersRes.json();
+
+                    allOrders = orders;
+
+                    // Update stats counters
+                    document.getElementById('statOrders').textContent = orders.length;
+                    document.getElementById('statEggs').textContent = eggs.length;
+                    document.getElementById('statCustomers').textContent = customers.length;
+                    
+                    const availableGifts = gifts.filter(g => g.status === 'AVAILABLE').length;
+                    document.getElementById('statAvailableGifts').textContent = availableGifts;
+
+                    // Render orders table
+                    renderOrders(orders);
+                }
+            } catch (error) {
+                console.error('Error fetching dashboard data:', error);
+                showAlert('Lỗi khi tải dữ liệu dashboard!', 'error');
+            }
+        }
+
+        function renderOrders(orders) {
+            const tbody = document.getElementById('ordersTableBody');
+            tbody.innerHTML = '';
+
+            if (orders.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">Không có đơn hàng nào được ghi nhận</td></tr>`;
+                return;
+            }
+
+            orders.forEach(order => {
+                const tr = document.createElement('tr');
+                
+                // Format price
+                const formattedPrice = new Intl.NumberFormat('vi-VN').format(order.totalPrice || 0);
+
+                // Create items description
+                let itemsDesc = '';
+                if (order.items && order.items.length > 0) {
+                    itemsDesc = order.items.map(item => `${item.productName} (x${item.quantity})`).join(', ');
+                } else {
+                    itemsDesc = '-';
+                }
+
+                // Delivery status badge styling
+                let badgeClass = 'badge-info';
+                if (order.deliveryStatus === 'COMPLETED' || order.deliveryStatus === 'SUCCESS' || order.deliveryStatus === 'Giao hàng thành công') {
+                    badgeClass = 'badge-success';
+                } else if (order.deliveryStatus === 'CANCELLED' || order.deliveryStatus === 'Đã hủy') {
+                    badgeClass = 'badge-danger';
+                }
+
+                tr.innerHTML = `
+                    <td style="font-weight: 600; color: var(--color-secondary);">${order.orderCode || '-'}</td>
+                    <td>${order.customerCode || '-'}</td>
+                    <td><span class="badge ${badgeClass}">${order.deliveryStatus || '-'}</span></td>
+                    <td>${formattedPrice}</td>
+                    <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${itemsDesc}">${itemsDesc}</td>
+                    <td>${formatDateTime(order.createdAt)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterOrders() {
+            const query = document.getElementById('orderSearch').value.toLowerCase().trim();
+            const filtered = allOrders.filter(order => {
+                const orderCode = (order.orderCode || '').toLowerCase();
+                const customerCode = (order.customerCode || '').toLowerCase();
+                const deliveryStatus = (order.deliveryStatus || '').toLowerCase();
+                return orderCode.includes(query) || customerCode.includes(query) || deliveryStatus.includes(query);
+            });
+            renderOrders(filtered);
+        }
+    </script>
+</body>
+</html>

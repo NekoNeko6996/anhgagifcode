@@ -60,7 +60,42 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
 
         if (existingOrderOpt.isEmpty()) {
             // 1. Gọi API ngoài transaction để lấy thông tin đơn hàng mới
-            KiotvietOrder apiOrder = apiPort.fetchOrderFromKiotviet(orderCode)
+            java.util.Set<String> candidateCodes = new java.util.LinkedHashSet<>();
+            candidateCodes.add(orderCode); // Thử tìm chính xác trước
+
+            // Nếu mã không giống mã đầy đủ (không chứa '_' và không bắt đầu bằng các tiền tố quen thuộc), thử thêm tiền tố
+            boolean looksLikeFullCode = orderCode.contains("_")
+                    || orderCode.startsWith("HD")
+                    || orderCode.startsWith("DH")
+                    || orderCode.startsWith("OD");
+
+            if (!looksLikeFullCode) {
+                java.util.List<String> dbPrefixes = orderPort.findDistinctPrefixes();
+                if (dbPrefixes == null) {
+                    dbPrefixes = java.util.Collections.emptyList();
+                }
+                java.util.List<String> defaultPrefixes = java.util.List.of("HDTTS", "HDSPE", "DHTTS", "DHSPE", "HD", "DH", "OD");
+                java.util.List<String> allPrefixes = new java.util.ArrayList<>(dbPrefixes);
+                for (String def : defaultPrefixes) {
+                    if (!allPrefixes.contains(def)) {
+                        allPrefixes.add(def);
+                    }
+                }
+                for (String prefix : allPrefixes) {
+                    candidateCodes.add(prefix + "_" + orderCode);
+                    candidateCodes.add(prefix + orderCode);
+                }
+            }
+
+            Optional<KiotvietOrder> apiOrderOpt = Optional.empty();
+            for (String candidate : candidateCodes) {
+                apiOrderOpt = apiPort.fetchOrderFromKiotviet(candidate);
+                if (apiOrderOpt.isPresent()) {
+                    break;
+                }
+            }
+
+            KiotvietOrder apiOrder = apiOrderOpt
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mã đơn hàng này trên hệ thống KiotViet."));
 
             if (apiOrder.getCustomerCode() == null || apiOrder.getCustomerCode().trim().isEmpty() || "KHACH_LE".equalsIgnoreCase(apiOrder.getCustomerCode().trim())) {

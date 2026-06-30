@@ -68,6 +68,8 @@ public class SecurityConfig {
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 // Cho phép Admin đăng nhập
                 .requestMatchers("/api/admin/auth/login").permitAll()
+                // Cho phép truy cập giao diện quản trị Admin và các file static
+                .requestMatchers("/admin/**", "/css/**", "/js/**", "/images/**").permitAll()
                 // Bắt buộc xác thực với toàn bộ API Admin khác
                 .anyRequest().authenticated()
                 );

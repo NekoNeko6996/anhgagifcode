@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments :: htmlHeader('Quản Lý Trứng')}"></head>
+
+<body>
+    <!-- Sidebar -->
+    <div th:replace="~{admin/fragments :: sidebar('eggs')}"></div>
+
+    <!-- Main Content Wrapper -->
+    <div class="main-wrapper">
+        <!-- Topbar -->
+        <div th:replace="~{admin/fragments :: topbar('Quản Lý Trứng & Tiến Trình Ấp')}"></div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Filter & Action Card -->
+            <div class="card" style="margin-bottom: 24px;">
+                <div class="action-header">
+                    <div class="search-box">
+                        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                        <input type="text" id="eggSearch" class="search-input" placeholder="Tìm theo ID trứng, mã đơn..." onkeyup="filterEggs()">
+                    </div>
+                    
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        <div>
+                            <select id="typeFilter" class="form-select" style="padding: 10px 40px 10px 16px; width: 160px;" onchange="filterEggs()">
+                                <option value="ALL">Mọi loại trứng</option>
+                                <option value="1">Trứng nhận ngay</option>
+                                <option value="2">Trứng cần ấp</option>
+                            </select>
+                        </div>
+                        <div>
+                            <select id="statusFilter" class="form-select" style="padding: 10px 40px 10px 16px; width: 160px;" onchange="filterEggs()">
+                                <option value="ALL">Mọi trạng thái</option>
+                                <option value="PENDING">PENDING</option>
+                                <option value="CLAIMED">CLAIMED</option>
+                                <option value="CANCELLED">CANCELLED</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-secondary" onclick="loadEggsData()">
+                            <i class="fa-solid fa-rotate"></i> Làm mới
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table" id="eggsTable">
+                        <thead>
+                            <tr>
+                                <th>ID Trứng</th>
+                                <th>Loại Trứng</th>
+                                <th>Trạng Thái</th>
+                                <th>Mã Đơn Hàng</th>
+                                <th>Bể Quà Tặng</th>
+                                <th>Tài Khoản Nhận</th>
+                                <th>Ngày Nở Dự Kiến</th>
+                                <th>Ngày Tạo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="eggsTableBody">
+                            <tr>
+                                <td colspan="8" style="text-align: center; color: var(--text-secondary);">Đang tải dữ liệu...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script imports & Alert container -->
+    <div th:replace="~{admin/fragments :: footerScripts}"></div>
+
+    <script>
+        let allEggs = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadEggsData();
+        });
+
+        async function loadEggsData() {
+            try {
+                const response = await fetchWithAuth('/api/admin/eggs');
+                if (response) {
+                    const data = await response.json();
+                    allEggs = data;
+                    renderEggs(data);
+                }
+            } catch (error) {
+                console.error('Error fetching eggs data:', error);
+                showAlert('Lỗi khi tải dữ liệu trứng!', 'error');
+            }
+        }
+
+        function renderEggs(eggs) {
+            const tbody = document.getElementById('eggsTableBody');
+            tbody.innerHTML = '';
+
+            if (eggs.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-secondary);">Không có trứng nào được ghi nhận</td></tr>`;
+                return;
+            }
+
+            eggs.forEach(egg => {
+                const tr = document.createElement('tr');
+                
+                // Status badge
+                let statusBadge = '';
+                if (egg.status === 'PENDING') {
+                    statusBadge = `<span class="badge badge-warning">PENDING</span>`;
+                } else if (egg.status === 'CLAIMED') {
+                    statusBadge = `<span class="badge badge-success">CLAIMED</span>`;
+                } else if (egg.status === 'CANCELLED') {
+                    statusBadge = `<span class="badge badge-danger">CANCELLED</span>`;
+                } else {
+                    statusBadge = `<span class="badge badge-info">${egg.status}</span>`;
+                }
+
+                // Egg type badge
+                const eggTypeLabel = egg.eggType === 1 
+                    ? `<span class="badge badge-info"><i class="fa-solid fa-bolt"></i> Nhận ngay (T1)</span>`
+                    : `<span class="badge badge-warning"><i class="fa-solid fa-hourglass-half"></i> Cần ấp (T2)</span>`;
+
+                const orderCode = egg.order ? egg.order.orderCode : '-';
+                const poolName = egg.giftPool ? `${egg.giftPool.poolName} (${egg.giftPool.tier})` : '-';
+                
+                let accountText = '-';
+                if (egg.account) {
+                    accountText = `<div style="font-weight:600;">${egg.account.username}</div>
+                                   <div style="font-size:11px;color:var(--text-secondary);">${egg.account.platform || '-'} (${egg.account.tier || '-'})</div>`;
+                }
+
+                tr.innerHTML = `
+                    <td style="font-size:12px; font-family:monospace; color:var(--text-secondary);">${egg.id}</td>
+                    <td>${eggTypeLabel}</td>
+                    <td>${statusBadge}</td>
+                    <td style="font-weight:600; color:var(--color-secondary);">${orderCode}</td>
+                    <td>${poolName}</td>
+                    <td>${accountText}</td>
+                    <td>${formatDateTime(egg.hatchAt)}</td>
+                    <td>${formatDateTime(egg.createdAt)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterEggs() {
+            const query = document.getElementById('eggSearch').value.toLowerCase().trim();
+            const typeFilter = document.getElementById('typeFilter').value;
+            const statusFilter = document.getElementById('statusFilter').value;
+
+            const filtered = allEggs.filter(egg => {
+                const idMatch = egg.id.toLowerCase().includes(query);
+                const orderCode = egg.order ? egg.order.orderCode.toLowerCase() : '';
+                const orderMatch = orderCode.includes(query);
+                
+                const typeMatch = typeFilter === 'ALL' || egg.eggType.toString() === typeFilter;
+                const statusMatch = statusFilter === 'ALL' || egg.status === statusFilter;
+
+                return (idMatch || orderMatch) && typeMatch && statusMatch;
+            });
+
+            renderEggs(filtered);
+        }
+    </script>
+</body>
+</html>
