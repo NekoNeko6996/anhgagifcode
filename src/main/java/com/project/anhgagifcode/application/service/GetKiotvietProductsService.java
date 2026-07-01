@@ -57,6 +57,7 @@ public class GetKiotvietProductsService implements GetKiotvietProductsUseCase {
 
                     return KiotvietProductDto.builder()
                             .kvProductId(p.getKvProductId())
+                            .code(p.getCode())
                             .name(p.getName())
                             .fullName(p.getFullName())
                             .basePrice(p.getBasePrice())

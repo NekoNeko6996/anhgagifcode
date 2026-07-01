@@ -18,7 +18,7 @@
                 <div class="action-header">
                     <div class="search-box">
                         <i class="fa-solid fa-magnifying-glass search-icon"></i>
-                        <input type="text" id="productSearch" class="search-input" placeholder="Tìm theo tên SP, ID KiotViet..." onkeyup="filterProducts()">
+                        <input type="text" id="productSearch" class="search-input" placeholder="Tìm theo tên SP, SKU, ID KiotViet..." onkeyup="filterProducts()">
                     </div>
                     
                     <div style="display: flex; gap: 12px; align-items: center;">
@@ -37,6 +37,7 @@
                             <tr>
                                 <th style="width: 80px;">Ảnh</th>
                                 <th>ID KiotViet</th>
+                                <th>SKU</th>
                                 <th>Tên Sản Phẩm</th>
                                 <th>Giá Gốc (VND)</th>
                                 <th>Cấu Hình Ánh Xạ Trứng (Game Rules)</th>
@@ -45,7 +46,7 @@
                         </thead>
                         <tbody id="productsTableBody">
                             <tr>
-                                <td colspan="6" style="text-align: center; color: var(--text-secondary);">Đang tải dữ liệu...</td>
+                                <td colspan="7" style="text-align: center; color: var(--text-secondary);">Đang tải dữ liệu...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -73,8 +74,8 @@
                     <div class="form-group">
                         <label class="form-label" for="mappingEggType">Loại trứng đẻ ra</label>
                         <select id="mappingEggType" class="form-select" required>
-                            <option value="1">Trứng Loại 1 (Nhận ngay tài khoản cấp 1)</option>
-                            <option value="2">Trứng Loại 2 (Cần ấp đếm ngược nhận tài khoản cấp cao)</option>
+                            <option value="1">Trứng Loại 1 (Nhận ngay)</option>
+                            <option value="2">Trứng Loại 2 (Cần ấp)</option>
                         </select>
                     </div>
 
@@ -148,7 +149,7 @@
             tbody.innerHTML = '';
 
             if (products.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">Không có sản phẩm nào. Nhấp "Đồng bộ" để lấy dữ liệu.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-secondary);">Không có sản phẩm nào. Nhấp "Đồng bộ" để lấy dữ liệu.</td></tr>`;
                 return;
             }
 
@@ -186,6 +187,7 @@
                 tr.innerHTML = `
                     <td>${imgTag}</td>
                     <td style="font-family:monospace; font-size:13px;">${prod.kvProductId}</td>
+                    <td style="font-family:monospace; font-size:13px; color:var(--text-secondary);">${prod.code || '-'}</td>
                     <td style="font-weight:600; color:var(--text-primary); max-width: 250px;">${prod.name || '-'}</td>
                     <td>${formattedPrice}</td>
                     <td><div style="display:flex; flex-wrap:wrap;">${mappingsLayout}</div></td>
@@ -204,7 +206,8 @@
             const filtered = allProducts.filter(prod => {
                 const idMatch = prod.kvProductId.toString().includes(query);
                 const nameMatch = (prod.name || '').toLowerCase().includes(query);
-                return idMatch || nameMatch;
+                const codeMatch = (prod.code || '').toLowerCase().includes(query);
+                return idMatch || nameMatch || codeMatch;
             });
             renderProducts(filtered);
         }

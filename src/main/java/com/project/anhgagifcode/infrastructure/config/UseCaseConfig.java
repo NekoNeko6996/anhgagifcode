@@ -60,13 +60,20 @@ public class UseCaseConfig {
     }
 
     @Bean
+    public UpdateEggHatchTimeUseCase updateEggHatchTimeUseCase(EggPersistencePort eggPort) {
+        return new UpdateEggHatchTimeService(eggPort);
+    }
+
+    @Bean
     public GetGiftPoolsUseCase getGiftPoolsUseCase(GiftPoolPersistencePort poolPort) {
         return new GetGiftPoolsService(poolPort);
     }
 
     @Bean
-    public GetKiotvietOrdersUseCase getKiotvietOrdersUseCase(KiotvietOrderPersistencePort orderPort) {
-        return new GetKiotvietOrdersService(orderPort);
+    public GetKiotvietOrdersUseCase getKiotvietOrdersUseCase(
+            KiotvietOrderPersistencePort orderPort,
+            KiotvietProductPersistencePort productPort) {
+        return new GetKiotvietOrdersService(orderPort, productPort);
     }
 
     @Bean

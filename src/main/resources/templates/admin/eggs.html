@@ -1,167 +1,268 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{admin/fragments :: htmlHeader('Quản Lý Trứng')}"></head>
+    <head th:replace="~{admin/fragments :: htmlHeader('Quản Lý Trứng')}"></head>
 
-<body>
-    <!-- Sidebar -->
-    <div th:replace="~{admin/fragments :: sidebar('eggs')}"></div>
+    <body>
+        <!-- Sidebar -->
+        <div th:replace="~{admin/fragments :: sidebar('eggs')}"></div>
 
-    <!-- Main Content Wrapper -->
-    <div class="main-wrapper">
-        <!-- Topbar -->
-        <div th:replace="~{admin/fragments :: topbar('Quản Lý Trứng & Tiến Trình Ấp')}"></div>
+        <!-- Main Content Wrapper -->
+        <div class="main-wrapper">
+            <!-- Topbar -->
+            <div th:replace="~{admin/fragments :: topbar('Quản Lý Trứng & Tiến Trình Ấp')}"></div>
 
-        <!-- Content Area -->
-        <div class="content-area">
-            <!-- Filter & Action Card -->
-            <div class="card" style="margin-bottom: 24px;">
-                <div class="action-header">
-                    <div class="search-box">
-                        <i class="fa-solid fa-magnifying-glass search-icon"></i>
-                        <input type="text" id="eggSearch" class="search-input" placeholder="Tìm theo ID trứng, mã đơn..." onkeyup="filterEggs()">
-                    </div>
-                    
-                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                        <div>
-                            <select id="typeFilter" class="form-select" style="padding: 10px 40px 10px 16px; width: 160px;" onchange="filterEggs()">
-                                <option value="ALL">Mọi loại trứng</option>
-                                <option value="1">Trứng nhận ngay</option>
-                                <option value="2">Trứng cần ấp</option>
-                            </select>
+            <!-- Content Area -->
+            <div class="content-area">
+                <!-- Filter & Action Card -->
+                <div class="card" style="margin-bottom: 24px;">
+                    <div class="action-header">
+                        <div class="search-box">
+                            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                            <input type="text" id="eggSearch" class="search-input" placeholder="Tìm theo ID trứng, mã đơn..." onkeyup="filterEggs()">
                         </div>
-                        <div>
-                            <select id="statusFilter" class="form-select" style="padding: 10px 40px 10px 16px; width: 160px;" onchange="filterEggs()">
-                                <option value="ALL">Mọi trạng thái</option>
-                                <option value="PENDING">PENDING</option>
-                                <option value="CLAIMED">CLAIMED</option>
-                                <option value="CANCELLED">CANCELLED</option>
-                            </select>
-                        </div>
-                        <button class="btn btn-secondary" onclick="loadEggsData()">
-                            <i class="fa-solid fa-rotate"></i> Làm mới
-                        </button>
-                    </div>
-                </div>
 
-                <div class="table-responsive">
-                    <table class="table" id="eggsTable">
-                        <thead>
-                            <tr>
-                                <th>ID Trứng</th>
-                                <th>Loại Trứng</th>
-                                <th>Trạng Thái</th>
-                                <th>Mã Đơn Hàng</th>
-                                <th>Bể Quà Tặng</th>
-                                <th>Tài Khoản Nhận</th>
-                                <th>Ngày Nở Dự Kiến</th>
-                                <th>Ngày Tạo</th>
-                            </tr>
-                        </thead>
-                        <tbody id="eggsTableBody">
-                            <tr>
-                                <td colspan="8" style="text-align: center; color: var(--text-secondary);">Đang tải dữ liệu...</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                            <div>
+                                <select id="typeFilter" class="form-select" style="padding: 10px 40px 10px 16px; width: 160px;" onchange="filterEggs()">
+                                    <option value="ALL">Mọi loại trứng</option>
+                                    <option value="1">Trứng nhận ngay</option>
+                                    <option value="2">Trứng cần ấp</option>
+                                </select>
+                            </div>
+                            <div>
+                                <select id="statusFilter" class="form-select" style="padding: 10px 40px 10px 16px; width: 160px;" onchange="filterEggs()">
+                                    <option value="ALL">Mọi trạng thái</option>
+                                    <option value="PENDING">PENDING</option>
+                                    <option value="CLAIMED">CLAIMED</option>
+                                    <option value="CANCELLED">CANCELLED</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-secondary" onclick="loadEggsData()">
+                                <i class="fa-solid fa-rotate"></i> Làm mới
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table" id="eggsTable">
+                            <thead>
+                                <tr>
+                                    <th>ID Trứng</th>
+                                    <th>Loại Trứng</th>
+                                    <th>Trạng Thái</th>
+                                    <th>Mã Đơn Hàng</th>
+                                    <th>Bể Quà Tặng</th>
+                                    <th>Tài Khoản Nhận</th>
+                                    <th>Ngày Nở Dự Kiến</th>
+                                    <th>Ngày Tạo</th>
+                                    <th>Hành Động</th>
+                                </tr>
+                            </thead>
+                            <tbody id="eggsTableBody">
+                                <tr>
+                                    <td colspan="9" style="text-align: center; color: var(--text-secondary);">Đang tải dữ liệu...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Script imports & Alert container -->
-    <div th:replace="~{admin/fragments :: footerScripts}"></div>
+        <!-- Edit Hatch Time Modal -->
+        <div class="modal-overlay" id="hatchTimeModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">Chỉnh Sửa Thời Gian Nở</h3>
+                    <button class="modal-close" onclick="closeHatchTimeModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="excel-guide-box">
+                        <div class="excel-guide-title">
+                            <i class="fa-solid fa-circle-info"></i>
+                            <span>Lưu ý:</span>
+                        </div>
+                        <ul class="excel-guide-list" style="margin-bottom: 12px;">
+                            <li>Thời gian được chọn là thời gian mà trứng sẽ có thể được mở ra và nhận được phần thưởng.</li>
+                            <li>Nhấn nút <strong>Nở ngay</strong> rôi nhấn xác nhận để trứng có thể được mở mà không cần chờ đợi.</li>
+                        </ul>
+                    </div>
 
-    <script>
-        let allEggs = [];
+                    <form id="hatchTimeForm" onsubmit="submitHatchTime(event)">
+                        <input type="hidden" id="editEggId">
 
-        document.addEventListener('DOMContentLoaded', () => {
-            loadEggsData();
-        });
+                        <div class="form-group">
+                            <label class="form-label" for="editHatchTime">Thời gian nở mới</label>
+                            <div style="display: flex; gap: 8px;">
+                                <input class="form-input" type="datetime-local" id="editHatchTime" required style="flex: 1;">
+                                <button type="button" class="btn btn-secondary" onclick="setCurrentTime()" style="padding: 10px 14px; white-space: nowrap;">
+                                    <i class="fa-solid fa-bolt"></i> Nở ngay
+                                </button>
+                            </div>
+                        </div>
 
-        async function loadEggsData() {
-            try {
-                const response = await fetchWithAuth('/api/admin/eggs');
-                if (response) {
-                    const data = await response.json();
-                    allEggs = data;
-                    renderEggs(data);
+                        <div class="modal-footer" style="padding-bottom: 0; padding-right: 0; margin-top: 20px;">
+                            <button type="button" class="btn btn-secondary" onclick="closeHatchTimeModal()">Hủy</button>
+                            <button type="submit" class="btn btn-primary">Xác nhận</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Script imports & Alert container -->
+        <div th:replace="~{admin/fragments :: footerScripts}"></div>
+
+        <script>
+            let allEggs = [];
+
+            document.addEventListener('DOMContentLoaded', () => {
+                loadEggsData();
+            });
+
+            async function loadEggsData() {
+                try {
+                    const response = await fetchWithAuth('/api/admin/eggs');
+                    if (response) {
+                        const data = await response.json();
+                        allEggs = data;
+                        renderEggs(data);
+                    }
+                } catch (error) {
+                    console.error('Error fetching eggs data:', error);
+                    showAlert('Lỗi khi tải dữ liệu trứng!', 'error');
                 }
-            } catch (error) {
-                console.error('Error fetching eggs data:', error);
-                showAlert('Lỗi khi tải dữ liệu trứng!', 'error');
-            }
-        }
-
-        function renderEggs(eggs) {
-            const tbody = document.getElementById('eggsTableBody');
-            tbody.innerHTML = '';
-
-            if (eggs.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-secondary);">Không có trứng nào được ghi nhận</td></tr>`;
-                return;
             }
 
-            eggs.forEach(egg => {
-                const tr = document.createElement('tr');
-                
-                // Status badge
-                let statusBadge = '';
-                if (egg.status === 'PENDING') {
-                    statusBadge = `<span class="badge badge-warning">PENDING</span>`;
-                } else if (egg.status === 'CLAIMED') {
-                    statusBadge = `<span class="badge badge-success">CLAIMED</span>`;
-                } else if (egg.status === 'CANCELLED') {
-                    statusBadge = `<span class="badge badge-danger">CANCELLED</span>`;
+            function renderEggs(eggs) {
+                const tbody = document.getElementById('eggsTableBody');
+                tbody.innerHTML = '';
+
+                if (eggs.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-secondary);">Không có trứng nào được ghi nhận</td></tr>`;
+                    return;
+                }
+
+                eggs.forEach(egg => {
+                    const tr = document.createElement('tr');
+
+                    // Status badge
+                    let statusBadge = '';
+                    if (egg.status === 'PENDING') {
+                        statusBadge = `<span class="badge badge-warning">PENDING</span>`;
+                    } else if (egg.status === 'CLAIMED') {
+                        statusBadge = `<span class="badge badge-success">CLAIMED</span>`;
+                    } else if (egg.status === 'CANCELLED') {
+                        statusBadge = `<span class="badge badge-danger">CANCELLED</span>`;
+                    } else {
+                        statusBadge = `<span class="badge badge-info">${egg.status}</span>`;
+                    }
+
+                    // Egg type badge
+                    const eggTypeLabel = egg.eggType === 1
+                            ? `<span class="badge badge-info"><i class="fa-solid fa-bolt"></i> Nhận ngay (T1)</span>`
+                            : `<span class="badge badge-warning"><i class="fa-solid fa-hourglass-half"></i> Cần ấp (T2)</span>`;
+
+                    const orderCode = egg.order ? egg.order.orderCode : '-';
+                    const poolName = egg.giftPool ? `${egg.giftPool.poolName} (${egg.giftPool.tier})` : '-';
+
+                    let accountText = '-';
+                    if (egg.account) {
+                        accountText = `<div style="font-weight:600;">${egg.account.username}</div>
+                                       <div style="font-size:11px;color:var(--text-secondary);">${egg.account.platform || '-'} (${egg.account.tier || '-'})</div>`;
+                    }
+
+                    const actionBtn = egg.status === 'PENDING'
+                            ? `<button class="btn btn-secondary" style="padding: 6px 12px; font-size:12px;" onclick="openHatchTimeModal('${egg.id}', '${egg.hatchAt || ''}')">
+                                <i class="fa-solid fa-clock"></i> Sửa Giờ Ấp
+                           </button>`
+                            : `<span style="font-size:12px; color:var(--text-secondary);">-</span>`;
+
+                    tr.innerHTML = `
+                        <td style="font-size:12px; font-family:monospace; color:var(--text-secondary);">${egg.id}</td>
+                        <td>${eggTypeLabel}</td>
+                        <td>${statusBadge}</td>
+                        <td style="font-weight:600; color:var(--color-secondary);">${orderCode}</td>
+                        <td>${poolName}</td>
+                        <td>${accountText}</td>
+                        <td>${formatDateTime(egg.hatchAt)}</td>
+                        <td>${formatDateTime(egg.createdAt)}</td>
+                        <td>${actionBtn}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            function filterEggs() {
+                const query = document.getElementById('eggSearch').value.toLowerCase().trim();
+                const typeFilter = document.getElementById('typeFilter').value;
+                const statusFilter = document.getElementById('statusFilter').value;
+
+                const filtered = allEggs.filter(egg => {
+                    const idMatch = egg.id.toLowerCase().includes(query);
+                    const orderCode = egg.order ? egg.order.orderCode.toLowerCase() : '';
+                    const orderMatch = orderCode.includes(query);
+
+                    const typeMatch = typeFilter === 'ALL' || egg.eggType.toString() === typeFilter;
+                    const statusMatch = statusFilter === 'ALL' || egg.status === statusFilter;
+
+                    return (idMatch || orderMatch) && typeMatch && statusMatch;
+                });
+
+                renderEggs(filtered);
+            }
+
+            function openHatchTimeModal(eggId, currentHatchAt) {
+                document.getElementById('editEggId').value = eggId;
+                if (currentHatchAt && currentHatchAt !== 'null' && currentHatchAt !== '') {
+                    document.getElementById('editHatchTime').value = currentHatchAt.slice(0, 16);
                 } else {
-                    statusBadge = `<span class="badge badge-info">${egg.status}</span>`;
+                    document.getElementById('editHatchTime').value = '';
+                }
+                document.getElementById('hatchTimeModal').classList.add('active');
+            }
+
+            function setCurrentTime() {
+                const now = new Date();
+                const tzoffset = now.getTimezoneOffset() * 60000;
+                const localISOTime = (new Date(now.getTime() - tzoffset)).toISOString().slice(0, 16);
+                document.getElementById('editHatchTime').value = localISOTime;
+            }
+
+            function closeHatchTimeModal() {
+                document.getElementById('hatchTimeModal').classList.remove('active');
+            }
+
+            async function submitHatchTime(e) {
+                e.preventDefault();
+                const eggId = document.getElementById('editEggId').value;
+                const hatchTimeValue = document.getElementById('editHatchTime').value;
+
+                if (!hatchTimeValue) {
+                    showAlert('Vui lòng chọn thời gian!', 'warning');
+                    return;
                 }
 
-                // Egg type badge
-                const eggTypeLabel = egg.eggType === 1 
-                    ? `<span class="badge badge-info"><i class="fa-solid fa-bolt"></i> Nhận ngay (T1)</span>`
-                    : `<span class="badge badge-warning"><i class="fa-solid fa-hourglass-half"></i> Cần ấp (T2)</span>`;
+                try {
+                    const localIsoDate = hatchTimeValue + ":00"; // format: YYYY-MM-DDTHH:MM:SS
 
-                const orderCode = egg.order ? egg.order.orderCode : '-';
-                const poolName = egg.giftPool ? `${egg.giftPool.poolName} (${egg.giftPool.tier})` : '-';
-                
-                let accountText = '-';
-                if (egg.account) {
-                    accountText = `<div style="font-weight:600;">${egg.account.username}</div>
-                                   <div style="font-size:11px;color:var(--text-secondary);">${egg.account.platform || '-'} (${egg.account.tier || '-'})</div>`;
+                    const response = await fetchWithAuth(`/api/admin/eggs/${eggId}/hatch-time`, {
+                        method: 'PUT',
+                        body: JSON.stringify({hatchAt: localIsoDate})
+                    });
+
+                    if (response && response.ok) {
+                        showAlert('Cập nhật thời gian nở thành công!', 'success');
+                        closeHatchTimeModal();
+                        loadEggsData();
+                    } else {
+                        showAlert('Cập nhật thời gian nở thất bại!', 'error');
+                    }
+                } catch (error) {
+                    console.error('Update hatch time error:', error);
+                    showAlert('Lỗi kết nối đến máy chủ!', 'error');
                 }
-
-                tr.innerHTML = `
-                    <td style="font-size:12px; font-family:monospace; color:var(--text-secondary);">${egg.id}</td>
-                    <td>${eggTypeLabel}</td>
-                    <td>${statusBadge}</td>
-                    <td style="font-weight:600; color:var(--color-secondary);">${orderCode}</td>
-                    <td>${poolName}</td>
-                    <td>${accountText}</td>
-                    <td>${formatDateTime(egg.hatchAt)}</td>
-                    <td>${formatDateTime(egg.createdAt)}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        function filterEggs() {
-            const query = document.getElementById('eggSearch').value.toLowerCase().trim();
-            const typeFilter = document.getElementById('typeFilter').value;
-            const statusFilter = document.getElementById('statusFilter').value;
-
-            const filtered = allEggs.filter(egg => {
-                const idMatch = egg.id.toLowerCase().includes(query);
-                const orderCode = egg.order ? egg.order.orderCode.toLowerCase() : '';
-                const orderMatch = orderCode.includes(query);
-                
-                const typeMatch = typeFilter === 'ALL' || egg.eggType.toString() === typeFilter;
-                const statusMatch = statusFilter === 'ALL' || egg.status === statusFilter;
-
-                return (idMatch || orderMatch) && typeMatch && statusMatch;
-            });
-
-            renderEggs(filtered);
-        }
-    </script>
-</body>
+            }
+        </script>
+    </body>
 </html>

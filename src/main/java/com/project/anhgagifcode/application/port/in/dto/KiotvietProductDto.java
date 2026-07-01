@@ -18,6 +18,9 @@ public class KiotvietProductDto {
     @Schema(description = "ID sản phẩm trên KiotViet")
     private Long kvProductId;
     
+    @Schema(description = "Mã sản phẩm (SKU)")
+    private String code;
+    
     @Schema(description = "Tên sản phẩm")
     private String name;
     

@@ -35,6 +35,7 @@ import java.util.Date;
 @NamedQueries({
     @NamedQuery(name = "KiotvietProducts.findAll", query = "SELECT k FROM KiotvietProducts k"),
     @NamedQuery(name = "KiotvietProducts.findByKvProductId", query = "SELECT k FROM KiotvietProducts k WHERE k.kvProductId = :kvProductId"),
+    @NamedQuery(name = "KiotvietProducts.findByCode", query = "SELECT k FROM KiotvietProducts k WHERE k.code = :code"),
     @NamedQuery(name = "KiotvietProducts.findByName", query = "SELECT k FROM KiotvietProducts k WHERE k.name = :name"),
     @NamedQuery(name = "KiotvietProducts.findByFullName", query = "SELECT k FROM KiotvietProducts k WHERE k.fullName = :fullName"),
     @NamedQuery(name = "KiotvietProducts.findByBasePrice", query = "SELECT k FROM KiotvietProducts k WHERE k.basePrice = :basePrice"),
@@ -60,6 +61,9 @@ public class KiotvietProducts implements Serializable {
     @Size(max = 65535)
     @Column(name = "image_url")
     private String imageUrl;
+    @Size(max = 255)
+    @Column(name = "code")
+    private String code;
     @Basic(optional = false)
     @NotNull
     @Column(name = "last_synced_at")
@@ -118,6 +122,14 @@ public class KiotvietProducts implements Serializable {
 
     public void setImageUrl(String imageUrl) {
         this.imageUrl = imageUrl;
+    }
+
+    public String getCode() {
+        return code;
+    }
+
+    public void setCode(String code) {
+        this.code = code;
     }
 
     public Date getLastSyncedAt() {

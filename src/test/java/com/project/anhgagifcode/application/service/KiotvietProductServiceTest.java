@@ -39,6 +39,7 @@ class KiotvietProductServiceTest {
     void setUp() {
         mockProduct = KiotvietProduct.builder()
                 .kvProductId(100L)
+                .code("AG-2SUPER")
                 .name("Product 1")
                 .fullName("Full Product 1")
                 .basePrice(50000.0)
@@ -79,6 +80,7 @@ class KiotvietProductServiceTest {
         List<KiotvietProductDto> result = service.getProducts();
 
         assertEquals(1, result.size());
+        assertEquals("AG-2SUPER", result.get(0).getCode());
         assertEquals(1, result.get(0).getMappings().size());
         assertEquals("pool-1", result.get(0).getMappings().get(0).getGiftPool().getId());
     }

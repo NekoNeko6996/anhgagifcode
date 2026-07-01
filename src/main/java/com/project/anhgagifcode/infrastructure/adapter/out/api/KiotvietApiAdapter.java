@@ -129,6 +129,7 @@ public class KiotvietApiAdapter implements KiotvietApiPort {
                 for (KiotvietProductData item : data) {
                     allProducts.add(KiotvietProduct.builder()
                             .kvProductId(item.getId())
+                            .code(item.getCode())
                             .name(item.getName())
                             .fullName(item.getFullName())
                             .basePrice(item.getBasePrice())
@@ -288,6 +289,7 @@ public class KiotvietApiAdapter implements KiotvietApiPort {
     @Data
     public static class KiotvietProductData {
         private long id;
+        private String code;
         private String name;
         private String fullName;
         private Double basePrice;

@@ -50,6 +50,24 @@ public class ClaimEggService implements ClaimEggUseCase {
         Egg initialEgg = eggPort.findById(eggId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy trứng hợp lệ."));
 
+        // Nếu trứng đã được mở trước đó, trả về thông tin tài khoản VIP ngay lập tức mà không cần đồng bộ hóa đơn hàng
+        if ("CLAIMED".equals(initialEgg.getStatus())) {
+            GiftAccount assignedAccount = initialEgg.getAccount();
+            if (assignedAccount != null) {
+                return ClaimEggResponse.builder()
+                        .username(assignedAccount.getUsername())
+                        .password(assignedAccount.getPassword())
+                        .platform(assignedAccount.getPlatform())
+                        .message("Dưới đây là thông tin tài khoản đã nhận của bạn.")
+                        .build();
+            } else {
+                throw new BusinessRuleViolationException("Trứng đã mở nhưng không tìm thấy thông tin quà tặng.");
+            }
+        }
+        if ("CANCELLED".equals(initialEgg.getStatus())) {
+            throw new BusinessRuleViolationException("Trứng này đã bị hủy.");
+        }
+
         // 2. Đồng bộ trạng thái đơn hàng thời gian thực ngoài Transaction nếu quá hạn 5 phút cache
         KiotvietOrder syncedOrder = syncOrderUseCase.syncOrderIfNeeded(initialEgg.getOrder());
 
@@ -58,6 +76,24 @@ public class ClaimEggService implements ClaimEggUseCase {
             // 3.1 Load và Khóa Trứng (Lock For Update)
             Egg egg = eggPort.loadEggForUpdate(eggId)
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy trứng hợp lệ."));
+
+            // Nếu trứng đã được mở trong lúc đồng bộ, trả về thông tin tài khoản VIP
+            if ("CLAIMED".equals(egg.getStatus())) {
+                GiftAccount assignedAccount = egg.getAccount();
+                if (assignedAccount != null) {
+                    return ClaimEggResponse.builder()
+                            .username(assignedAccount.getUsername())
+                            .password(assignedAccount.getPassword())
+                            .platform(assignedAccount.getPlatform())
+                            .message("Dưới đây là thông tin tài khoản đã nhận của bạn.")
+                            .build();
+                } else {
+                    throw new BusinessRuleViolationException("Trứng đã mở nhưng không tìm thấy thông tin quà tặng.");
+                }
+            }
+            if ("CANCELLED".equals(egg.getStatus())) {
+                throw new BusinessRuleViolationException("Trứng này đã bị hủy.");
+            }
 
             // Đảm bảo trứng tham chiếu tới order đã được đồng bộ mới nhất
             egg.setOrder(syncedOrder);
@@ -76,11 +112,6 @@ public class ClaimEggService implements ClaimEggUseCase {
             // 3.4 Kiểm tra trạng thái cấm (BANNED)
             if ("BANNED".equals(customer.getStatus())) {
                 throw new BusinessRuleViolationException("Tài khoản bị khóa do vi phạm chính sách");
-            }
-
-            // 3.5 Kiểm tra trạng thái trứng
-            if ("CLAIMED".equals(egg.getStatus()) || "CANCELLED".equals(egg.getStatus())) {
-                throw new BusinessRuleViolationException("Trứng này đã được mở hoặc bị hủy.");
             }
 
             // 3.6 Kiểm tra điều kiện thời gian ấp (Hatching Cooldown)

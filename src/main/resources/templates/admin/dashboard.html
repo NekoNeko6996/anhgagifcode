@@ -294,11 +294,27 @@
                 const formattedPrice = new Intl.NumberFormat('vi-VN').format(order.totalPrice || 0);
 
                 // Create items description
-                let itemsDesc = '';
-                if (order.items && order.items.length > 0) {
-                    itemsDesc = order.items.map(item => `${item.productName} (x${item.quantity})`).join(', ');
+                let itemsHtml = '';
+                if (order.orderItems && order.orderItems.length > 0) {
+                    order.orderItems.forEach(item => {
+                        const imgTag = item.imageUrl 
+                            ? `<img src="${item.imageUrl}" alt="${item.fullName || ''}" style="width: 32px; height: 32px; border-radius: 4px; object-fit: cover; border: 1px solid var(--border-color); margin-right: 8px;">`
+                            : `<div style="width: 32px; height: 32px; border-radius: 4px; background-color: rgba(255,255,255,0.05); display:inline-flex; align-items:center; justify-content:center; color:var(--text-secondary); border: 1px solid var(--border-color); margin-right: 8px;"><i class="fa-solid fa-image" style="font-size:12px;"></i></div>`;
+
+                        itemsHtml += `
+                            <div style="display: flex; align-items: center; margin-bottom: 6px; font-size: 13px;">
+                                ${imgTag}
+                                <div style="display: flex; flex-direction: column;">
+                                    <span style="font-weight: 600; color: var(--text-primary); text-align: left;">${item.fullName || item.name || 'Sản phẩm không rõ'}</span>
+                                    <span style="font-size: 11px; color: var(--text-secondary); text-align: left;">
+                                        SKU: <strong style="font-family: monospace; color: var(--color-secondary);">${item.code || '-'}</strong> | SL: <strong>${item.quantity}</strong>
+                                    </span>
+                                </div>
+                            </div>
+                        `;
+                    });
                 } else {
-                    itemsDesc = '-';
+                    itemsHtml = '<span style="color: var(--text-secondary);">-</span>';
                 }
 
                 // Delivery status badge styling
@@ -314,7 +330,7 @@
                     <td>${order.customerCode || '-'}</td>
                     <td><span class="badge ${badgeClass}">${order.deliveryStatus || '-'}</span></td>
                     <td>${formattedPrice}</td>
-                    <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${itemsDesc}">${itemsDesc}</td>
+                    <td><div style="display: flex; flex-direction: column; gap: 4px;">${itemsHtml}</div></td>
                     <td>${formatDateTime(order.createdAt)}</td>
                 `;
                 tbody.appendChild(tr);

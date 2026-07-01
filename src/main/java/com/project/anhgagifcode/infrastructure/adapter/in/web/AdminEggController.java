@@ -1,7 +1,9 @@
 package com.project.anhgagifcode.infrastructure.adapter.in.web;
 
 import com.project.anhgagifcode.application.port.in.GetEggsUseCase;
+import com.project.anhgagifcode.application.port.in.UpdateEggHatchTimeUseCase;
 import com.project.anhgagifcode.application.port.in.dto.EggDto;
+import com.project.anhgagifcode.application.port.in.dto.UpdateHatchTimeRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -9,9 +11,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -23,6 +23,7 @@ import java.util.List;
 public class AdminEggController {
 
     private final GetEggsUseCase getEggsUseCase;
+    private final UpdateEggHatchTimeUseCase updateEggHatchTimeUseCase;
 
     @Operation(summary = "Lấy danh sách tất cả các quả trứng", description = "Trả về danh sách toàn bộ trứng trong hệ thống kèm thông tin chi tiết về đơn hàng, tài khoản quà và bể quà liên quan.")
     @ApiResponses({
@@ -33,5 +34,14 @@ public class AdminEggController {
     @GetMapping
     public ResponseEntity<List<EggDto>> getAllEggs() {
         return ResponseEntity.ok(getEggsUseCase.getEggs());
+    }
+
+    @Operation(summary = "Cập nhật thời gian nở của trứng", description = "Cho phép admin chỉnh sửa thời gian nở (hatchAt) của quả trứng.")
+    @PutMapping("/{id}/hatch-time")
+    public ResponseEntity<Void> updateHatchTime(
+            @PathVariable("id") String eggId,
+            @RequestBody UpdateHatchTimeRequest request) {
+        updateEggHatchTimeUseCase.updateHatchTime(eggId, request.getHatchAt());
+        return ResponseEntity.ok().build();
     }
 }

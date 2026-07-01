@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 @Builder
 public class KiotvietProduct {         
     private Long kvProductId;     
+    private String code;
     private String name;        
     private String fullName;      
     private Double basePrice;     

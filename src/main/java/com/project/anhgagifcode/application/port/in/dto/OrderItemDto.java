@@ -20,6 +20,18 @@ public class OrderItemDto {
     @Schema(description = "ID sản phẩm KiotViet")
     private String kvProductId;
     
+    @Schema(description = "Mã sản phẩm (SKU)")
+    private String code;
+    
+    @Schema(description = "Tên sản phẩm")
+    private String name;
+    
+    @Schema(description = "Tên đầy đủ")
+    private String fullName;
+    
+    @Schema(description = "Ảnh sản phẩm")
+    private String imageUrl;
+    
     @Schema(description = "Số lượng")
     private int quantity;
     

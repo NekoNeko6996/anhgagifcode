@@ -223,4 +223,17 @@ class ClaimEggServiceTest {
         // Verify return streak is reset to 0
         verify(customerPort, times(1)).saveCustomer(argThat(cus -> cus.getReturnStreak() == 0 && "TRUSTED_1".equals(cus.getStatus())));
     }
+
+    @Test
+    void claimEggReward_AlreadyClaimed_ReturnsAccount() {
+        validEgg.setStatus("CLAIMED");
+        validEgg.setAccount(availableAccount);
+
+        ClaimEggResponse response = claimService.claimEggReward("egg-uuid", "127.0.0.1");
+
+        assertNotNull(response);
+        assertEquals("gift_user", response.getUsername());
+        assertEquals("Steam", response.getPlatform());
+        assertTrue(response.getMessage().contains("thông tin tài khoản"));
+    }
 }

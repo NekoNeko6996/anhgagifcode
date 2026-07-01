@@ -31,6 +31,8 @@ class CustomerAndOrderServiceTest {
     private KiotvietOrderPersistencePort orderPort;
     @Mock
     private EggPersistencePort eggPort;
+    @Mock
+    private com.project.anhgagifcode.application.port.out.KiotvietProductPersistencePort productPersistencePort;
 
     private Customer mockCustomer;
     private KiotvietOrder mockOrder;
@@ -123,8 +125,9 @@ class CustomerAndOrderServiceTest {
 
     @Test
     void testGetKiotvietOrders_Success() {
-        GetKiotvietOrdersService service = new GetKiotvietOrdersService(orderPort);
+        GetKiotvietOrdersService service = new GetKiotvietOrdersService(orderPort, productPersistencePort);
         when(orderPort.findAll()).thenReturn(List.of(mockOrder));
+        when(productPersistencePort.findAll()).thenReturn(List.of());
 
         List<KiotvietOrderDto> orders = service.getOrders();
 
