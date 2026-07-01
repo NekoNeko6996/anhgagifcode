@@ -195,19 +195,21 @@ public class KiotvietApiAdapter implements KiotvietApiPort {
 
         // Tùy biến trạng thái giao hàng dựa trên status của KiotViet
         // KiotViet invoiceDelivery Status
-        String mappedDeliveryStatus = "Chưa rõ";
-        switch (invoice.invoiceDelivery.status) {
-            case 1 ->
-                mappedDeliveryStatus = "Đang chuẩn bị hàng";
-            case 2 ->
-                mappedDeliveryStatus = "Đang giao hàng";
-            case 3 ->
-                mappedDeliveryStatus = "Đã giao hàng";
-            case 4 ->
-                mappedDeliveryStatus = "Đang chuyển hoàn";
-            case 5 ->
-                mappedDeliveryStatus = "Đã chuyển hoàn";
-            default -> {
+        String mappedDeliveryStatus = "Đã giao hàng"; // Default for direct walk-in sales
+        if (invoice.getInvoiceDelivery() != null) {
+            switch (invoice.getInvoiceDelivery().getStatus()) {
+                case 1 ->
+                    mappedDeliveryStatus = "Đang chuẩn bị hàng";
+                case 2 ->
+                    mappedDeliveryStatus = "Đang giao hàng";
+                case 3 ->
+                    mappedDeliveryStatus = "Đã giao hàng";
+                case 4 ->
+                    mappedDeliveryStatus = "Đang chuyển hoàn";
+                case 5 ->
+                    mappedDeliveryStatus = "Đã chuyển hoàn";
+                default -> {
+                }
             }
         }
 
