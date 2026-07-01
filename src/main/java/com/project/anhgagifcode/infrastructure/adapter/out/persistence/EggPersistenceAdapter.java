@@ -22,8 +22,8 @@ public class EggPersistenceAdapter implements EggPersistencePort {
 
     @Override
     public Egg saveEgg(Egg egg) {
-        Eggs savedEntity = repository.save(mapper.toEntity(egg));
-        return mapper.toDomain(savedEntity);
+        repository.save(mapper.toEntity(egg));
+        return egg;
     }
 
     @Override

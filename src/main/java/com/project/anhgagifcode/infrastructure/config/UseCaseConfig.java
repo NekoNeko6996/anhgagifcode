@@ -22,8 +22,9 @@ public class UseCaseConfig {
             KiotvietApiPort apiPort,
             CustomerPersistencePort customerPort,
             ProductEggMappingPersistencePort mappingPort,
-            EggPersistencePort eggPort) {
-        return new SyncKiotvietOrderService(orderPort, apiPort, customerPort, mappingPort, eggPort, transactionManager);
+            EggPersistencePort eggPort,
+            NotificationPort notificationPort) {
+        return new SyncKiotvietOrderService(orderPort, apiPort, customerPort, mappingPort, eggPort, notificationPort, transactionManager);
     }
 
     @Bean
@@ -33,8 +34,9 @@ public class UseCaseConfig {
             EggOpeningLogPersistencePort logPort,
             KiotvietOrderPersistencePort orderPort,
             CustomerPersistencePort customerPort,
-            SyncKiotvietOrderUseCase syncOrderUseCase) {
-        return new ClaimEggService(eggPort, accountPort, logPort, orderPort, customerPort, syncOrderUseCase, transactionManager);
+            SyncKiotvietOrderUseCase syncOrderUseCase,
+            NotificationPort notificationPort) {
+        return new ClaimEggService(eggPort, orderPort, customerPort, accountPort, logPort, syncOrderUseCase, notificationPort, transactionManager);
     }
     
     @Bean

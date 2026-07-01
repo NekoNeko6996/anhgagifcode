@@ -11,5 +11,6 @@ public class ClaimEggResponse {
     private String username;
     private String password;
     private String platform;
+    private String tier;
     private String message;
 }

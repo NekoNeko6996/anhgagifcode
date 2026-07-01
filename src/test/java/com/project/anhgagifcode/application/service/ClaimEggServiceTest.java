@@ -38,6 +38,8 @@ class ClaimEggServiceTest {
     @Mock
     private SyncKiotvietOrderUseCase syncOrderUseCase;
     @Mock
+    private NotificationPort notificationPort;
+    @Mock
     private PlatformTransactionManager transactionManager;
 
     @InjectMocks
@@ -65,7 +67,7 @@ class ClaimEggServiceTest {
                 .id("egg-uuid")
                 .eggType(1)
                 .status("READY_TO_CLAIM")
-                .giftPool(GiftPool.builder().id("pool-uuid").build())
+                .giftPool(GiftPool.builder().id("pool-uuid").tier("A").build())
                 .order(validOrder)
                 .build();
 
@@ -117,6 +119,7 @@ class ClaimEggServiceTest {
         assertNotNull(response);
         assertEquals("gift_user", response.getUsername());
         assertEquals("Steam", response.getPlatform());
+        assertEquals("A", response.getTier());
 
         verify(accountPort, times(1)).updateAccount(argThat(acc -> "ASSIGNED".equals(acc.getStatus())));
         verify(eggPort, times(1)).saveEgg(argThat(egg -> "CLAIMED".equals(egg.getStatus())));
@@ -151,19 +154,21 @@ class ClaimEggServiceTest {
     }
 
     @Test
-    void claimEggReward_Egg2_NotAbsoluteSuccess_ThrowsException() {
+    void claimEggReward_Egg2_CooldownFinished_Succeeds() {
         validEgg.setEggType(2);
         validEgg.setStatus("WAITING_ORDER_COMPLETION");
         validEgg.setHatchAt(LocalDateTime.now().minusMinutes(5)); // Cooldown finished
-        validOrder.setCreatedAt(LocalDateTime.now()); // Make it recent so it's not absolute success
+        validOrder.setCreatedAt(LocalDateTime.now()); // Make it recent
         when(eggPort.loadEggForUpdate("egg-uuid")).thenReturn(Optional.of(validEgg));
         when(customerPort.loadByCustomerCode("CUS88")).thenReturn(Optional.of(cleanCustomer));
+        when(accountPort.pickAvailableAccountForUpdateSkipLocked("pool-uuid")).thenReturn(Optional.of(availableAccount));
 
-        BusinessRuleViolationException exception = assertThrows(BusinessRuleViolationException.class, () -> {
-            claimService.claimEggReward("egg-uuid", "127.0.0.1");
-        });
+        ClaimEggResponse response = claimService.claimEggReward("egg-uuid", "127.0.0.1");
 
-        assertTrue(exception.getMessage().contains("chưa đạt trạng thái thành công tuyệt đối"));
+        assertNotNull(response);
+        assertEquals("gift_user", response.getUsername());
+        assertEquals("Steam", response.getPlatform());
+        assertEquals("A", response.getTier());
     }
 
     @Test
@@ -237,6 +242,7 @@ class ClaimEggServiceTest {
         assertNotNull(response);
         assertEquals("gift_user", response.getUsername());
         assertEquals("Steam", response.getPlatform());
+        assertEquals("A", response.getTier());
         assertTrue(response.getMessage().contains("thông tin tài khoản"));
     }
 }

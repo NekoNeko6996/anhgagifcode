@@ -26,6 +26,7 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
     private final CustomerPersistencePort customerPort;
     private final ProductEggMappingPersistencePort mappingPort;
     private final EggPersistencePort eggPort;
+    private final NotificationPort notificationPort;
     private final TransactionTemplate transactionTemplate;
 
     public SyncKiotvietOrderService(
@@ -34,12 +35,14 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
             CustomerPersistencePort customerPort,
             ProductEggMappingPersistencePort mappingPort,
             EggPersistencePort eggPort,
+            NotificationPort notificationPort,
             PlatformTransactionManager transactionManager) {
         this.orderPort = orderPort;
         this.apiPort = apiPort;
         this.customerPort = customerPort;
         this.mappingPort = mappingPort;
         this.eggPort = eggPort;
+        this.notificationPort = notificationPort;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -329,6 +332,13 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
 
         List<ProductEggMapping> mappings = mappingPort.loadMappingsByProductIds(productIds);
         if (mappings.isEmpty()) {
+            notificationPort.sendAlert(String.format(
+                    "⚠️ <b>CẢNH BÁO SỰ CỐ: Không có trứng khả dụng</b>\n" +
+                    "• Mã đơn hàng: <code>%s</code>\n" +
+                    "• Mã khách hàng: <code>%s</code>\n" +
+                    "• Chi tiết: Sản phẩm trong đơn chưa được cấu hình liên kết với bể quà.",
+                    order.getOrderCode(), order.getCustomerCode()
+            ));
             return;
         }
 
@@ -414,20 +424,17 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
             } else if ("CANCELLED".equals(displayStatus)) {
                 // Keep CANCELLED
             } else {
-                boolean inHatchCooldown = hatchAt != null && LocalDateTime.now().isBefore(hatchAt);
-                
-                if (inHatchCooldown) {
-                    displayStatus = "HATCHING";
+                String deliveryStatus = egg.getOrder().getDeliveryStatus();
+                boolean isDelivered = "Đã giao hàng".equalsIgnoreCase(deliveryStatus) || "Giao thành công".equalsIgnoreCase(deliveryStatus);
+
+                if (!isDelivered) {
+                    displayStatus = "WAITING_ORDER_COMPLETION";
                 } else {
-                    boolean isClean = customer.getReturnStreak() == 0;
-                    if (egg.getEggType() == 1 && isClean) {
-                        displayStatus = "READY_TO_CLAIM";
+                    boolean inHatchCooldown = hatchAt != null && LocalDateTime.now().isBefore(hatchAt);
+                    if (inHatchCooldown) {
+                        displayStatus = "HATCHING";
                     } else {
-                        if (isAbsoluteSuccess(egg.getOrder())) {
-                            displayStatus = "READY_TO_CLAIM";
-                        } else {
-                            displayStatus = "WAITING_ORDER_COMPLETION";
-                        }
+                        displayStatus = "READY_TO_CLAIM";
                     }
                 }
 
@@ -446,13 +453,5 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
                     .build());
         }
         return result;
-    }
-
-    private boolean isAbsoluteSuccess(KiotvietOrder order) {
-        if (!"Đã giao hàng".equalsIgnoreCase(order.getDeliveryStatus())) {
-            return false;
-        }
-        LocalDateTime deliveryDate = order.getUpdatedAt() != null ? order.getUpdatedAt() : order.getCreatedAt();
-        return deliveryDate.plusDays(15).isBefore(LocalDateTime.now());
     }
 }

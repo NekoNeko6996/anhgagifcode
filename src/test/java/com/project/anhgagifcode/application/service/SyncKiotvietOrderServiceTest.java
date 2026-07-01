@@ -32,6 +32,8 @@ class SyncKiotvietOrderServiceTest {
     @Mock
     private EggPersistencePort eggPort;
     @Mock
+    private NotificationPort notificationPort;
+    @Mock
     private org.springframework.transaction.PlatformTransactionManager transactionManager;
 
     @InjectMocks
