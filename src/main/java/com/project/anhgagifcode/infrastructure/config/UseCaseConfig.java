@@ -131,6 +131,11 @@ public class UseCaseConfig {
     }
 
     @Bean
+    public UpdateMappingRatesUseCase updateMappingRatesUseCase(ProductEggMappingPersistencePort mappingPort) {
+        return new UpdateMappingRatesService(mappingPort);
+    }
+
+    @Bean
     public DeleteProductEggMappingUseCase deleteProductEggMappingUseCase(ProductEggMappingPersistencePort mappingPort) {
         return new DeleteProductEggMappingService(mappingPort);
     }

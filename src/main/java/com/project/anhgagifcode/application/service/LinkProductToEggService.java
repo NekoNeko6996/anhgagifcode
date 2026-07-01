@@ -19,18 +19,26 @@ public class LinkProductToEggService implements LinkProductToEggUseCase {
     @Transactional
     public void linkProductToEgg(LinkProductToEggRequest request) {
         Long productId = request.getProductId();
-        int eggType = request.getEggType();
+        String poolId = request.getPoolId();
 
-        // 1. check if the product has already been mapped to this eggType
-        boolean alreadyMapped = mappingPersistencePort.existsByKvProductIdAndEggType(productId, eggType);
-
-        // 2. check how many mapping rules currently exist for this product
         List<ProductEggMapping> currentMappings = mappingPersistencePort.findByKvProductId(productId);
 
-        if (!alreadyMapped && currentMappings.size() >= 2) {
-            throw new BusinessRuleViolationException("Sản phẩm này đã đạt số lượng liên kết tối đa (tối đa 2 trứng).");
+        boolean alreadyMapped = currentMappings.stream()
+                .anyMatch(m -> m.getGiftPoolId() != null 
+                        && m.getGiftPoolId().getId().equals(poolId));
+
+        if (alreadyMapped) {
+            throw new BusinessRuleViolationException("Liên kết giữa sản phẩm này với bể quà chỉ định đã tồn tại.");
         }
 
-        mappingPersistencePort.saveMapping(productId, request.getPoolId(), eggType);
+        double newRate = 100.0 / (currentMappings.size() + 1);
+
+        // 1. Lưu ánh xạ mới với tỉ lệ mới chia đều
+        mappingPersistencePort.saveMapping(productId, poolId, newRate);
+
+        // 2. Cập nhật lại tỉ lệ chia đều cho các ánh xạ cũ
+        for (ProductEggMapping mapping : currentMappings) {
+            mappingPersistencePort.updateMappingRate(mapping.getId(), newRate);
+        }
     }
 }

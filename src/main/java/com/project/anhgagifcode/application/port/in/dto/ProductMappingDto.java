@@ -17,14 +17,14 @@ public class ProductMappingDto {
     @Schema(description = "ID cấu hình mapping")
     private String id;
     
-    @Schema(description = "Loại trứng đẻ ra (1: Thường, 2: Cần ấp)")
-    private int eggType;
-    
     @Schema(description = "Cấp độ trứng (Egg Tier)")
     private String eggTier;
     
     @Schema(description = "Bể quà (Gift Pool) nhận tương ứng")
     private GiftPoolDto giftPool;
+    
+    @Schema(description = "Tỉ lệ nhận trứng (%)")
+    private double rate;
     
     @Schema(description = "Thời gian tạo")
     private LocalDateTime createdAt;

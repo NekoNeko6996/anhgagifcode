@@ -59,7 +59,7 @@
     <div class="modal-overlay" id="mappingModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title">Tạo Ánh Xạ Sản Phẩm - Trứng</h3>
+                <h3 class="modal-title">Tạo Ánh Xạ Sản Phẩm - Bể Quà</h3>
                 <button class="modal-close" onclick="closeMappingModal()">&times;</button>
             </div>
             <div class="modal-body">
@@ -69,14 +69,6 @@
                     <div class="form-group">
                         <label class="form-label">Sản phẩm chọn</label>
                         <input class="form-input" type="text" id="mappingProductName" readonly>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label" for="mappingEggType">Loại trứng đẻ ra</label>
-                        <select id="mappingEggType" class="form-select" required>
-                            <option value="1">Trứng Loại 1 (Nhận ngay)</option>
-                            <option value="2">Trứng Loại 2 (Cần ấp)</option>
-                        </select>
                     </div>
 
                     <div class="form-group">
@@ -89,6 +81,39 @@
                     <div class="modal-footer" style="padding-bottom: 0; padding-right: 0;">
                         <button type="button" class="btn btn-secondary" onclick="closeMappingModal()">Hủy</button>
                         <button type="submit" class="btn btn-primary">Tạo liên kết</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rates Configuration Modal -->
+    <div class="modal-overlay" id="ratesModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Cấu hình Tỉ lệ phát trứng</h3>
+                <button class="modal-close" onclick="closeRatesModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="ratesForm" onsubmit="submitRates(event)">
+                    <input type="hidden" id="ratesProductId">
+                    
+                    <div class="form-group">
+                        <label class="form-label">Sản phẩm chọn</label>
+                        <input class="form-input" type="text" id="ratesProductName" readonly>
+                    </div>
+                    
+                    <div id="ratesListContainer" style="margin-bottom: 20px; max-height: 250px; overflow-y: auto; padding-right: 4px;">
+                        <!-- Mappings rates inputs will be populated here -->
+                    </div>
+
+                    <div style="margin-bottom: 15px; font-size: 14px; font-weight: 600; text-align: right;">
+                        Tổng tỉ lệ: <span id="totalRateLabel">0.0%</span>
+                    </div>
+
+                    <div class="modal-footer" style="padding-bottom: 0; padding-right: 0;">
+                        <button type="button" class="btn btn-secondary" onclick="closeRatesModal()">Hủy</button>
+                        <button type="submit" class="btn btn-primary">Lưu tỉ lệ</button>
                     </div>
                 </form>
             </div>
@@ -167,16 +192,14 @@
                 let mappingsLayout = '';
                 if (prod.mappings && prod.mappings.length > 0) {
                     prod.mappings.forEach(m => {
-                        const typeBadge = m.eggType === 1 
-                            ? `<span style="color:var(--color-secondary); font-weight:600;">T1 (Nhận ngay)</span>`
-                            : `<span style="color:var(--color-warning); font-weight:600;">T2 (Cần ấp)</span>`;
                         const poolName = m.giftPool ? m.giftPool.poolName : 'Bể quà không rõ';
                         const tier = m.giftPool ? m.giftPool.tier : '-';
+                        const rateText = typeof m.rate === 'number' ? `${m.rate.toFixed(1)}%` : '100%';
 
                         mappingsLayout += `
-                            <div class="mapping-tag">
-                                <span>${typeBadge} &rarr; <strong>${poolName} (Tier ${tier})</strong></span>
-                                <span class="mapping-tag-delete" title="Xóa cấu hình này" onclick="deleteMapping('${m.id}')">&times;</span>
+                            <div class="mapping-tag" style="margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                                <span><strong>${poolName} (Tier ${tier})</strong> <span class="badge badge-info" style="font-size:10px; padding: 2px 6px;">${rateText}</span></span>
+                                <span class="mapping-tag-delete" title="Xóa cấu hình này" onclick="deleteMapping('${m.id}')" style="cursor:pointer; font-weight:bold; margin-left: 4px;">&times;</span>
                             </div>
                         `;
                     });
@@ -190,11 +213,18 @@
                     <td style="font-family:monospace; font-size:13px; color:var(--text-secondary);">${prod.code || '-'}</td>
                     <td style="font-weight:600; color:var(--text-primary); max-width: 250px;">${prod.name || '-'}</td>
                     <td>${formattedPrice}</td>
-                    <td><div style="display:flex; flex-wrap:wrap;">${mappingsLayout}</div></td>
+                    <td><div style="display:flex; flex-wrap:wrap; gap: 6px;">${mappingsLayout}</div></td>
                     <td>
-                        <button class="btn btn-secondary" style="padding: 6px 12px; font-size:12px;" onclick="openMappingModal(${prod.kvProductId}, '${prod.name.replace(/'/g, "\\'")}')">
-                            <i class="fa-solid fa-link"></i> Thêm Ánh Xạ
-                        </button>
+                        <div style="display:flex; gap:6px; flex-wrap: wrap;">
+                            <button class="btn btn-secondary" style="padding: 6px 12px; font-size:12px;" onclick="openMappingModal(${prod.kvProductId}, '${prod.name.replace(/'/g, "\\'")}')">
+                                <i class="fa-solid fa-link"></i> Thêm Ánh Xạ
+                            </button>
+                            ${prod.mappings && prod.mappings.length > 0 ? `
+                                <button class="btn btn-secondary" style="padding: 6px 12px; font-size:12px; background-color: rgba(255,255,255,0.05);" onclick="openRatesModal(${prod.kvProductId}, '${prod.name.replace(/'/g, "\\'")}')">
+                                    <i class="fa-solid fa-percent"></i> Tỉ lệ
+                                </button>
+                            ` : ''}
+                        </div>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -257,7 +287,6 @@
             e.preventDefault();
             const productId = parseInt(document.getElementById('mappingProductId').value);
             const poolId = document.getElementById('mappingPoolId').value;
-            const eggType = parseInt(document.getElementById('mappingEggType').value);
 
             if (!poolId) {
                 showAlert('Vui lòng chọn bể quà!', 'warning');
@@ -267,7 +296,7 @@
             try {
                 const response = await fetchWithAuth('/api/admin/product-egg-mappings', {
                     method: 'POST',
-                    body: JSON.stringify({ productId, poolId, eggType })
+                    body: JSON.stringify({ productId, poolId })
                 });
 
                 if (response && response.ok) {
@@ -275,8 +304,9 @@
                     closeMappingModal();
                     loadProductsData();
                 } else {
-                    const errorText = await response.text();
-                    showAlert('Thất bại: Có thể sản phẩm đã đạt tối đa 2 loại trứng!', 'error');
+                    const errorObj = await response.json().catch(() => null);
+                    const errorMsg = errorObj && errorObj.message ? errorObj.message : 'Tạo cấu hình ánh xạ thất bại!';
+                    showAlert(errorMsg, 'error');
                 }
             } catch (error) {
                 console.error('Mapping submit error:', error);
@@ -300,6 +330,96 @@
                 }
             } catch (error) {
                 console.error('Delete mapping error:', error);
+            }
+        }
+
+        // Rates Configuration Modals Control
+        function openRatesModal(productId, productName) {
+            document.getElementById('ratesProductId').value = productId;
+            document.getElementById('ratesProductName').value = productName;
+            
+            const product = allProducts.find(p => p.kvProductId === productId);
+            const container = document.getElementById('ratesListContainer');
+            container.innerHTML = '';
+
+            if (product && product.mappings) {
+                product.mappings.forEach(m => {
+                    const poolName = m.giftPool ? m.giftPool.poolName : 'Bể quà không rõ';
+                    const tier = m.giftPool ? m.giftPool.tier : '-';
+                    
+                    const div = document.createElement('div');
+                    div.className = 'form-group';
+                    div.style.marginBottom = '12px';
+                    div.innerHTML = `
+                        <label class="form-label">${poolName} (Tier ${tier})</label>
+                        <div style="display:flex; align-items:center; gap: 8px;">
+                            <input class="form-input rate-input" type="number" step="0.1" min="0" max="100" data-mapping-id="${m.id}" value="${m.rate || 0}" oninput="calculateTotalRates()" required>
+                            <span style="font-weight:600; color: var(--text-primary);">%</span>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+            }
+            
+            calculateTotalRates();
+            document.getElementById('ratesModal').classList.add('active');
+        }
+
+        function calculateTotalRates() {
+            const inputs = document.querySelectorAll('.rate-input');
+            let sum = 0.0;
+            inputs.forEach(input => {
+                sum += parseFloat(input.value) || 0.0;
+            });
+            const totalLabel = document.getElementById('totalRateLabel');
+            totalLabel.textContent = `${sum.toFixed(1)}%`;
+            if (Math.abs(sum - 100.0) < 0.05) {
+                totalLabel.style.color = '#10B981'; // Green
+            } else {
+                totalLabel.style.color = '#EF4444'; // Red
+            }
+        }
+
+        function closeRatesModal() {
+            document.getElementById('ratesModal').classList.remove('active');
+        }
+
+        async function submitRates(e) {
+            e.preventDefault();
+            const productId = parseInt(document.getElementById('ratesProductId').value);
+            const inputs = document.querySelectorAll('.rate-input');
+            
+            const requests = [];
+            let sum = 0.0;
+            inputs.forEach(input => {
+                const mappingId = input.getAttribute('data-mapping-id');
+                const rate = parseFloat(input.value) || 0.0;
+                sum += rate;
+                requests.push({ mappingId, rate });
+            });
+
+            if (Math.abs(sum - 100.0) > 0.05) {
+                showAlert(`Tổng tỉ lệ phải bằng 100% (Hiện tại: ${sum.toFixed(1)}%)`, 'warning');
+                return;
+            }
+
+            try {
+                const response = await fetchWithAuth(`/api/admin/product-egg-mappings/products/${productId}/rates`, {
+                    method: 'PUT',
+                    body: JSON.stringify(requests)
+                });
+
+                if (response && response.ok) {
+                    showAlert('Cấu hình tỉ lệ thành công!', 'success');
+                    closeRatesModal();
+                    loadProductsData();
+                } else {
+                    const errorObj = await response.json().catch(() => null);
+                    const errorMsg = errorObj && errorObj.message ? errorObj.message : 'Lưu cấu hình tỉ lệ thất bại!';
+                    showAlert(errorMsg, 'error');
+                }
+            } catch (error) {
+                console.error('Rates submit error:', error);
             }
         }
     </script>

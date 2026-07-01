@@ -332,86 +332,74 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
             return;
         }
 
-        List<ProductEggMapping> type1Mappings = mappings.stream()
-                .filter(m -> m.getEggType() == 1)
-                .collect(Collectors.toList());
-
-        List<ProductEggMapping> type2Mappings = mappings.stream()
-                .filter(m -> m.getEggType() == 2)
-                .collect(Collectors.toList());
-
         Customer customer = customerPort.loadByCustomerCode(order.getCustomerCode())
                 .orElseThrow(() -> new ResourceNotFoundException("Lỗi dữ liệu khách hàng."));
 
-        if (!type1Mappings.isEmpty()) {
-            List<String> tiers = type1Mappings.stream()
-                    .map(m -> m.getGiftPoolId().getTier())
-                    .collect(Collectors.toList());
-            String selectedTier = drawTier(tiers, 0.99);
-            ProductEggMapping selectedMapping = type1Mappings.stream()
-                    .filter(m -> m.getGiftPoolId().getTier().equalsIgnoreCase(selectedTier))
-                    .findFirst()
-                    .orElse(type1Mappings.get(0));
-
+        // Draw pool for Egg 1 (Type 1)
+        ProductEggMapping mapping1 = drawMappingFromList(mappings);
+        if (mapping1 != null) {
             LocalDateTime hatchAt = null;
             if (customer.getReturnStreak() == 1) {
                 hatchAt = LocalDateTime.now().plusDays(15);
             }
 
-            Egg newEgg = Egg.builder()
+            String initialStatus = "READY_TO_CLAIM";
+            if (hatchAt != null && LocalDateTime.now().isBefore(hatchAt)) {
+                initialStatus = "HATCHING";
+            } else {
+                boolean isClean = customer.getReturnStreak() == 0;
+                if (!isClean) {
+                    initialStatus = "WAITING_ORDER_COMPLETION";
+                }
+            }
+
+            Egg egg1 = Egg.builder()
                     .id(UUID.randomUUID().toString())
                     .order(order)
-                    .giftPool(selectedMapping.getGiftPoolId())
+                    .giftPool(mapping1.getGiftPoolId())
                     .eggType(1)
-                    .status("PENDING")
+                    .status(initialStatus)
                     .createdAt(LocalDateTime.now())
                     .hatchAt(hatchAt)
                     .build();
-            eggPort.saveEgg(newEgg);
+            eggPort.saveEgg(egg1);
         }
 
-        if (!type2Mappings.isEmpty()) {
-            List<String> tiers = type2Mappings.stream()
-                    .map(m -> m.getGiftPoolId().getTier())
-                    .collect(Collectors.toList());
-            String selectedTier = drawTier(tiers, 0.95);
-            ProductEggMapping selectedMapping = type2Mappings.stream()
-                    .filter(m -> m.getGiftPoolId().getTier().equalsIgnoreCase(selectedTier))
-                    .findFirst()
-                    .orElse(type2Mappings.get(0));
-
+        // Draw pool for Egg 2 (Type 2)
+        ProductEggMapping mapping2 = drawMappingFromList(mappings);
+        if (mapping2 != null) {
             LocalDateTime hatchAt = LocalDateTime.now().plusDays(15);
 
-            Egg newEgg = Egg.builder()
+            Egg egg2 = Egg.builder()
                     .id(UUID.randomUUID().toString())
                     .order(order)
-                    .giftPool(selectedMapping.getGiftPoolId())
+                    .giftPool(mapping2.getGiftPoolId())
                     .eggType(2)
-                    .status("PENDING")
+                    .status("HATCHING")
                     .createdAt(LocalDateTime.now())
                     .hatchAt(hatchAt)
                     .build();
-            eggPort.saveEgg(newEgg);
+            eggPort.saveEgg(egg2);
         }
     }
 
-    private String drawTier(List<String> tiers, double lowestChance) {
-        if (tiers == null || tiers.isEmpty()) {
+    private ProductEggMapping drawMappingFromList(List<ProductEggMapping> mappings) {
+        if (mappings == null || mappings.isEmpty()) {
             return null;
         }
-        List<String> sortedTiers = tiers.stream().distinct().sorted().collect(Collectors.toList());
-        if (sortedTiers.size() == 1) {
-            return sortedTiers.get(0);
+        double totalSum = mappings.stream().mapToDouble(ProductEggMapping::getRate).sum();
+        if (totalSum <= 0.0) {
+            return mappings.get(0);
         }
-        String lowest = sortedTiers.get(0);
-        List<String> higher = sortedTiers.subList(1, sortedTiers.size());
-
-        if (Math.random() < lowestChance) {
-            return lowest;
-        } else {
-            int idx = (int) (Math.random() * higher.size());
-            return higher.get(idx);
+        double r = Math.random() * totalSum;
+        double cumulative = 0.0;
+        for (ProductEggMapping mapping : mappings) {
+            cumulative += mapping.getRate();
+            if (r <= cumulative) {
+                return mapping;
+            }
         }
+        return mappings.get(mappings.size() - 1);
     }
 
     private List<EggDisplayDto> calculateDisplayStatus(List<Egg> eggs, Customer customer) {
@@ -441,6 +429,12 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
                             displayStatus = "WAITING_ORDER_COMPLETION";
                         }
                     }
+                }
+
+                // Lưu lại trạng thái thực tế mới nhất vào database
+                if (!displayStatus.equals(egg.getStatus())) {
+                    egg.setStatus(displayStatus);
+                    eggPort.saveEgg(egg);
                 }
             }
 

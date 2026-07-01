@@ -15,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -55,7 +56,6 @@ class KiotvietProductServiceTest {
 
         mockMapping = ProductEggMapping.builder()
                 .id("mapping-1")
-                .eggType(1)
                 .eggTier("A")
                 .productCode(mockProduct)
                 .giftPoolId(mockPool)
@@ -103,29 +103,24 @@ class KiotvietProductServiceTest {
         LinkProductToEggRequest request = LinkProductToEggRequest.builder()
                 .productId(100L)
                 .poolId("pool-1")
-                .eggType(1)
                 .build();
 
-        when(mappingPersistencePort.existsByKvProductIdAndEggType(100L, 1)).thenReturn(false);
         when(mappingPersistencePort.findByKvProductId(100L)).thenReturn(Collections.emptyList());
 
         service.linkProductToEgg(request);
 
-        verify(mappingPersistencePort, times(1)).saveMapping(100L, "pool-1", 1);
+        verify(mappingPersistencePort, times(1)).saveMapping(100L, "pool-1", 100.0);
     }
 
     @Test
-    void testLinkProductToEgg_LimitReached_ThrowsException() {
+    void testLinkProductToEgg_Duplicate_ThrowsException() {
         LinkProductToEggService service = new LinkProductToEggService(mappingPersistencePort);
         LinkProductToEggRequest request = LinkProductToEggRequest.builder()
                 .productId(100L)
                 .poolId("pool-1")
-                .eggType(1)
                 .build();
 
-        when(mappingPersistencePort.existsByKvProductIdAndEggType(100L, 1)).thenReturn(false);
-        // Exceed max 2 eggs
-        when(mappingPersistencePort.findByKvProductId(100L)).thenReturn(List.of(mockMapping, mockMapping));
+        when(mappingPersistencePort.findByKvProductId(100L)).thenReturn(List.of(mockMapping));
 
         assertThrows(BusinessRuleViolationException.class, () -> service.linkProductToEgg(request));
     }
@@ -136,6 +131,9 @@ class KiotvietProductServiceTest {
         BatchDeleteMappingRequest request = BatchDeleteMappingRequest.builder()
                 .mappingIds(List.of("mapping-1"))
                 .build();
+
+        when(mappingPersistencePort.findById("mapping-1")).thenReturn(Optional.of(mockMapping));
+        when(mappingPersistencePort.findByKvProductId(100L)).thenReturn(Collections.emptyList());
 
         service.deleteMappings(request);
 

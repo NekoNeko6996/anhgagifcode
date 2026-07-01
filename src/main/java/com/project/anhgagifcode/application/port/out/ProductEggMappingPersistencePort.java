@@ -13,9 +13,11 @@ public interface ProductEggMappingPersistencePort {
 
     List<ProductEggMapping> findByKvProductId(Long kvProductId);
 
-    boolean existsByKvProductIdAndEggType(Long kvProductId, int eggType);
+    Optional<ProductEggMapping> findById(String id);
 
-    void saveMapping(Long kvProductId, String poolId, int eggType);
+    void saveMapping(Long kvProductId, String poolId, double rate);
+
+    void updateMappingRate(String mappingId, double rate);
 
     void deleteMapping(String mappingId);
 

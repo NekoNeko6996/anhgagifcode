@@ -20,6 +20,11 @@ public class UpdateEggHatchTimeService implements UpdateEggHatchTimeUseCase {
         Egg egg = eggPersistencePort.findById(eggId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy trứng hợp lệ."));
         egg.setHatchAt(hatchAt);
+        if (hatchAt != null && hatchAt.isBefore(LocalDateTime.now())) {
+            egg.setStatus("READY_TO_CLAIM");
+        } else {
+            egg.setStatus("HATCHING");
+        }
         eggPersistencePort.saveEgg(egg);
     }
 }

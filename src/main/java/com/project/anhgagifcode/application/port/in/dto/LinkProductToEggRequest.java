@@ -24,10 +24,4 @@ public class LinkProductToEggRequest {
     @NotBlank(message = "ID bể quà không được để trống")
     @Schema(description = "ID của bể quà (Gift Pool)")
     private String poolId;
-
-    @NotNull(message = "Loại trứng không được để trống")
-    @Min(value = 1, message = "Loại trứng phải lớn hơn hoặc bằng 1")
-    @Max(value = 2, message = "Loại trứng phải nhỏ hơn hoặc bằng 2")
-    @Schema(description = "Loại trứng (1 hoặc 2)")
-    private Integer eggType;
 }

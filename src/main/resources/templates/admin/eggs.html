@@ -30,11 +30,13 @@
                                 </select>
                             </div>
                             <div>
-                                <select id="statusFilter" class="form-select" style="padding: 10px 40px 10px 16px; width: 160px;" onchange="filterEggs()">
+                                <select id="statusFilter" class="form-select" style="padding: 10px 40px 10px 16px; width: 220px;" onchange="filterEggs()">
                                     <option value="ALL">Mọi trạng thái</option>
-                                    <option value="PENDING">PENDING</option>
-                                    <option value="CLAIMED">CLAIMED</option>
-                                    <option value="CANCELLED">CANCELLED</option>
+                                    <option value="HATCHING">Đang ấp (HATCHING)</option>
+                                    <option value="READY_TO_CLAIM">Sẵn sàng nhận (READY)</option>
+                                    <option value="CLAIMED">Đã nhận (CLAIMED)</option>
+                                    <option value="CANCELLED">Đã hủy (CANCELLED)</option>
+                                    <option value="WAITING_ORDER_COMPLETION">Chờ đơn (WAITING)</option>
                                 </select>
                             </div>
                             <button class="btn btn-secondary" onclick="loadEggsData()">
@@ -148,12 +150,16 @@
 
                     // Status badge
                     let statusBadge = '';
-                    if (egg.status === 'PENDING') {
-                        statusBadge = `<span class="badge badge-warning">PENDING</span>`;
+                    if (egg.status === 'HATCHING') {
+                        statusBadge = `<span class="badge badge-warning">Đang ấp (HATCHING)</span>`;
+                    } else if (egg.status === 'READY_TO_CLAIM') {
+                        statusBadge = `<span class="badge badge-success">Sẵn sàng nhận (READY)</span>`;
                     } else if (egg.status === 'CLAIMED') {
-                        statusBadge = `<span class="badge badge-success">CLAIMED</span>`;
+                        statusBadge = `<span class="badge" style="background-color: #5f6368; color: white;">Đã nhận (CLAIMED)</span>`;
                     } else if (egg.status === 'CANCELLED') {
-                        statusBadge = `<span class="badge badge-danger">CANCELLED</span>`;
+                        statusBadge = `<span class="badge badge-danger">Đã hủy (CANCELLED)</span>`;
+                    } else if (egg.status === 'WAITING_ORDER_COMPLETION') {
+                        statusBadge = `<span class="badge badge-info">Chờ đơn hàng (WAITING)</span>`;
                     } else {
                         statusBadge = `<span class="badge badge-info">${egg.status}</span>`;
                     }
@@ -172,7 +178,8 @@
                                        <div style="font-size:11px;color:var(--text-secondary);">${egg.account.platform || '-'} (${egg.account.tier || '-'})</div>`;
                     }
 
-                    const actionBtn = egg.status === 'PENDING'
+                    const isEditable = egg.status !== 'CLAIMED' && egg.status !== 'CANCELLED';
+                    const actionBtn = isEditable
                             ? `<button class="btn btn-secondary" style="padding: 6px 12px; font-size:12px;" onclick="openHatchTimeModal('${egg.id}', '${egg.hatchAt || ''}')">
                                 <i class="fa-solid fa-clock"></i> Sửa Giờ Ấp
                            </button>`

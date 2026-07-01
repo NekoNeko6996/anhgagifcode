@@ -31,7 +31,6 @@ import java.util.Date;
 @NamedQueries({
     @NamedQuery(name = "ProductEggMappings.findAll", query = "SELECT p FROM ProductEggMappings p"),
     @NamedQuery(name = "ProductEggMappings.findById", query = "SELECT p FROM ProductEggMappings p WHERE p.id = :id"),
-    @NamedQuery(name = "ProductEggMappings.findByEggType", query = "SELECT p FROM ProductEggMappings p WHERE p.eggType = :eggType"),
     @NamedQuery(name = "ProductEggMappings.findByEggTier", query = "SELECT p FROM ProductEggMappings p WHERE p.eggTier = :eggTier"),
     @NamedQuery(name = "ProductEggMappings.findByCreatedAt", query = "SELECT p FROM ProductEggMappings p WHERE p.createdAt = :createdAt"),
     @NamedQuery(name = "ProductEggMappings.findByUpdatedAt", query = "SELECT p FROM ProductEggMappings p WHERE p.updatedAt = :updatedAt")})
@@ -46,10 +45,6 @@ public class ProductEggMappings implements Serializable {
     private String id;
     @Basic(optional = false)
     @NotNull
-    @Column(name = "egg_type")
-    private int eggType;
-    @Basic(optional = false)
-    @NotNull
     @Size(min = 1, max = 10)
     @Column(name = "egg_tier")
     private String eggTier;
@@ -61,12 +56,24 @@ public class ProductEggMappings implements Serializable {
     @Column(name = "updated_at")
     @Temporal(TemporalType.TIMESTAMP)
     private Date updatedAt;
+    @Basic(optional = false)
+    @NotNull
+    @Column(name = "rate")
+    private double rate;
     @JoinColumn(name = "gift_pool_id", referencedColumnName = "id")
     @ManyToOne(optional = false)
     private GiftPools giftPoolId;
     @JoinColumn(name = "kv_product_id", referencedColumnName = "kv_product_id")
     @ManyToOne(optional = false)
     private KiotvietProducts kvProductId;
+
+    public double getRate() {
+        return rate;
+    }
+
+    public void setRate(double rate) {
+        this.rate = rate;
+    }
 
     public ProductEggMappings() {
     }
@@ -75,9 +82,8 @@ public class ProductEggMappings implements Serializable {
         this.id = id;
     }
 
-    public ProductEggMappings(String id, int eggType, String eggTier, Date createdAt) {
+    public ProductEggMappings(String id, String eggTier, Date createdAt) {
         this.id = id;
-        this.eggType = eggType;
         this.eggTier = eggTier;
         this.createdAt = createdAt;
     }
@@ -88,14 +94,6 @@ public class ProductEggMappings implements Serializable {
 
     public void setId(String id) {
         this.id = id;
-    }
-
-    public int getEggType() {
-        return eggType;
-    }
-
-    public void setEggType(int eggType) {
-        this.eggType = eggType;
     }
 
     public String getEggTier() {

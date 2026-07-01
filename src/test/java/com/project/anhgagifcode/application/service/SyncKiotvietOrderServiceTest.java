@@ -92,20 +92,20 @@ class SyncKiotvietOrderServiceTest {
 
         mappingEgg1Lowest = ProductEggMapping.builder()
                 .id("mapping-1")
-                .eggType(1)
                 .giftPoolId(poolA)
+                .rate(100.0)
                 .build();
 
         mappingEgg1Highest = ProductEggMapping.builder()
                 .id("mapping-2")
-                .eggType(1)
                 .giftPoolId(poolB)
+                .rate(100.0)
                 .build();
 
         mappingEgg2Lowest = ProductEggMapping.builder()
                 .id("mapping-3")
-                .eggType(2)
                 .giftPoolId(poolA)
+                .rate(100.0)
                 .build();
 
         lenient().when(transactionManager.getTransaction(any())).thenReturn(mock(org.springframework.transaction.TransactionStatus.class));

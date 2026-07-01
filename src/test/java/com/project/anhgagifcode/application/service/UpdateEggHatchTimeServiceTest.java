@@ -28,7 +28,7 @@ class UpdateEggHatchTimeServiceTest {
     void testUpdateHatchTime_Success() {
         Egg egg = Egg.builder()
                 .id("egg-1")
-                .status("PENDING")
+                .status("HATCHING")
                 .build();
 
         when(eggPersistencePort.findById("egg-1")).thenReturn(Optional.of(egg));
@@ -38,6 +38,25 @@ class UpdateEggHatchTimeServiceTest {
         service.updateHatchTime("egg-1", newHatchTime);
 
         assertEquals(newHatchTime, egg.getHatchAt());
+        assertEquals("HATCHING", egg.getStatus());
+        verify(eggPersistencePort, times(1)).saveEgg(egg);
+    }
+
+    @Test
+    void testUpdateHatchTime_PastTime_SetsReadyToClaim() {
+        Egg egg = Egg.builder()
+                .id("egg-1")
+                .status("HATCHING")
+                .build();
+
+        when(eggPersistencePort.findById("egg-1")).thenReturn(Optional.of(egg));
+        when(eggPersistencePort.saveEgg(any(Egg.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        LocalDateTime pastTime = LocalDateTime.now().minusMinutes(10);
+        service.updateHatchTime("egg-1", pastTime);
+
+        assertEquals(pastTime, egg.getHatchAt());
+        assertEquals("READY_TO_CLAIM", egg.getStatus());
         verify(eggPersistencePort, times(1)).saveEgg(egg);
     }
 

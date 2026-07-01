@@ -11,9 +11,9 @@ import java.time.LocalDateTime;
 public class ProductEggMapping {
     private String id;            
     private KiotvietProduct productCode;  
-    private int eggType;          
     private GiftPool giftPoolId;   
     private String eggTier;       
+    private double rate;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

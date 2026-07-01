@@ -64,7 +64,7 @@ class ClaimEggServiceTest {
         validEgg = Egg.builder()
                 .id("egg-uuid")
                 .eggType(1)
-                .status("PENDING")
+                .status("READY_TO_CLAIM")
                 .giftPool(GiftPool.builder().id("pool-uuid").build())
                 .order(validOrder)
                 .build();
@@ -138,6 +138,7 @@ class ClaimEggServiceTest {
     @Test
     void claimEggReward_HatchingCooldown_ThrowsException() {
         validEgg.setEggType(2);
+        validEgg.setStatus("HATCHING");
         validEgg.setHatchAt(LocalDateTime.now().plusDays(2)); // Hatch date in future
         when(eggPort.loadEggForUpdate("egg-uuid")).thenReturn(Optional.of(validEgg));
         when(customerPort.loadByCustomerCode("CUS88")).thenReturn(Optional.of(cleanCustomer));
@@ -152,6 +153,7 @@ class ClaimEggServiceTest {
     @Test
     void claimEggReward_Egg2_NotAbsoluteSuccess_ThrowsException() {
         validEgg.setEggType(2);
+        validEgg.setStatus("WAITING_ORDER_COMPLETION");
         validEgg.setHatchAt(LocalDateTime.now().minusMinutes(5)); // Cooldown finished
         validOrder.setCreatedAt(LocalDateTime.now()); // Make it recent so it's not absolute success
         when(eggPort.loadEggForUpdate("egg-uuid")).thenReturn(Optional.of(validEgg));
@@ -180,6 +182,7 @@ class ClaimEggServiceTest {
     void claimEggReward_Amnesty_ResetWarningStreak() {
         // Warning customer tries to claim Egg 1
         validEgg.setEggType(1);
+        validEgg.setStatus("READY_TO_CLAIM");
         validEgg.setHatchAt(LocalDateTime.now().minusMinutes(5)); // Warning customer egg 1 has hatch time
         validOrder.setDeliveryStatus("Đã giao hàng");
         validOrder.setUpdatedAt(LocalDateTime.now().minusDays(20)); // Absolute success

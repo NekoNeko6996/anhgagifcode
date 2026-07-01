@@ -76,37 +76,37 @@ public class ProductEggMappingPersistenceAdapter implements ProductEggMappingPer
 
     @Override
     @Transactional(readOnly = true)
-    public boolean existsByKvProductIdAndEggType(Long kvProductId, int eggType) {
-        return repository.existsByProductIdAndEggType(kvProductId, eggType);
+    public Optional<ProductEggMapping> findById(String id) {
+        return repository.findById(id).map(mapper::toDomain);
     }
 
     @Override
     @Transactional
-    public void saveMapping(Long kvProductId, String poolId, int eggType) {
+    public void saveMapping(Long kvProductId, String poolId, double rate) {
         KiotvietProducts product = productRepository.findById(kvProductId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm Kiotviet này."));
         GiftPools pool = poolRepository.findById(poolId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bể quà này."));
 
-        Optional<ProductEggMappings> existingOpt = repository.findByProductIdAndEggType(kvProductId, eggType);
+        ProductEggMappings entity = new ProductEggMappings();
+        entity.setId(UUID.randomUUID().toString());
+        entity.setKvProductId(product);
+        entity.setGiftPoolId(pool);
+        entity.setEggTier(pool.getTier());
+        entity.setRate(rate);
+        entity.setCreatedAt(new java.util.Date());
+        entity.setUpdatedAt(new java.util.Date());
 
-        ProductEggMappings entity;
-        if (existingOpt.isPresent()) {
-            entity = existingOpt.get();
-            entity.setGiftPoolId(pool);
-            entity.setEggTier(pool.getTier());
-            entity.setUpdatedAt(new java.util.Date());
-        } else {
-            entity = new ProductEggMappings();
-            entity.setId(UUID.randomUUID().toString());
-            entity.setKvProductId(product);
-            entity.setGiftPoolId(pool);
-            entity.setEggType(eggType);
-            entity.setEggTier(pool.getTier());
-            entity.setCreatedAt(new java.util.Date());
-            entity.setUpdatedAt(new java.util.Date());
-        }
+        repository.save(entity);
+    }
 
+    @Override
+    @Transactional
+    public void updateMappingRate(String mappingId, double rate) {
+        ProductEggMappings entity = repository.findById(mappingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy liên kết."));
+        entity.setRate(rate);
+        entity.setUpdatedAt(new java.util.Date());
         repository.save(entity);
     }
 

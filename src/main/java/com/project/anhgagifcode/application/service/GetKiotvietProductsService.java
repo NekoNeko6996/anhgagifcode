@@ -46,9 +46,9 @@ public class GetKiotvietProductsService implements GetKiotvietProductsUseCase {
 
                                 return ProductMappingDto.builder()
                                         .id(m.getId())
-                                        .eggType(m.getEggType())
                                         .eggTier(m.getEggTier())
                                         .giftPool(poolDto)
+                                        .rate(m.getRate())
                                         .createdAt(m.getCreatedAt())
                                         .updatedAt(m.getUpdatedAt())
                                         .build();

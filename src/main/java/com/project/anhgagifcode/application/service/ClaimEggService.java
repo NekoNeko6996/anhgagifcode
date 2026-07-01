@@ -114,26 +114,38 @@ public class ClaimEggService implements ClaimEggUseCase {
                 throw new BusinessRuleViolationException("Tài khoản bị khóa do vi phạm chính sách");
             }
 
-            // 3.6 Kiểm tra điều kiện thời gian ấp (Hatching Cooldown)
+            // 3.5 Cập nhật trạng thái trứng động dựa trên thông tin thực tế mới nhất trước khi kiểm tra
+            String dynamicStatus;
             boolean inHatchCooldown = egg.getHatchAt() != null && LocalDateTime.now().isBefore(egg.getHatchAt());
             if (inHatchCooldown) {
-                throw new BusinessRuleViolationException("Trứng đang ấp, chưa đến thời gian mở.");
+                dynamicStatus = "HATCHING";
+            } else {
+                boolean isClean = customer.getReturnStreak() == 0;
+                if (egg.getEggType() == 1 && isClean) {
+                    dynamicStatus = "READY_TO_CLAIM";
+                } else {
+                    if (isAbsoluteSuccess(syncedOrder)) {
+                        dynamicStatus = "READY_TO_CLAIM";
+                    } else {
+                        dynamicStatus = "WAITING_ORDER_COMPLETION";
+                    }
+                }
             }
 
-            // 3.7 Kiểm tra trạng thái đơn hàng đối soát (Absolute Success)
-            boolean isClean = customer.getReturnStreak() == 0;
-            if (egg.getEggType() == 1 && isClean) {
-                // Đối với trứng số 1 của khách hàng AN TOÀN: Chỉ cần đơn hàng không hoàn trả
-                boolean isReturned = "Đang chuyển hoàn".equalsIgnoreCase(syncedOrder.getDeliveryStatus()) 
-                        || "Đã chuyển hoàn".equalsIgnoreCase(syncedOrder.getDeliveryStatus());
-                if (isReturned) {
-                    throw new BusinessRuleViolationException("Đơn hàng này đã bị hoàn/trả.");
-                }
-            } else {
-                // Trứng số 2 hoặc trứng số 1 của khách hàng CẢNH CÁO: Phải đạt trạng thái thành công tuyệt đối
-                if (!isAbsoluteSuccess(syncedOrder)) {
-                    throw new BusinessRuleViolationException("Đơn hàng chưa đạt trạng thái thành công tuyệt đối hoặc chưa đủ 15 ngày.");
-                }
+            if (!dynamicStatus.equals(egg.getStatus())) {
+                egg.setStatus(dynamicStatus);
+                eggPort.saveEgg(egg);
+            }
+
+            // 3.6 Kiểm tra trạng thái trứng sau khi cập nhật động
+            if ("HATCHING".equals(egg.getStatus())) {
+                throw new BusinessRuleViolationException("Trứng đang ấp, chưa đến thời gian mở.");
+            }
+            if ("WAITING_ORDER_COMPLETION".equals(egg.getStatus())) {
+                throw new BusinessRuleViolationException("Đơn hàng chưa đạt trạng thái thành công tuyệt đối hoặc chưa đủ 15 ngày.");
+            }
+            if (!"READY_TO_CLAIM".equals(egg.getStatus())) {
+                throw new BusinessRuleViolationException("Trứng chưa sẵn sàng để nhận.");
             }
 
             // 3.8 Bốc Quà (Sử dụng native query SKIP LOCKED để khóa và phân bổ cực nhanh, chống deadlock)

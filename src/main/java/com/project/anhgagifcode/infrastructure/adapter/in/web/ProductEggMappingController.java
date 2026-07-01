@@ -25,11 +25,12 @@ public class ProductEggMappingController {
 
     private final LinkProductToEggUseCase linkProductToEggUseCase;
     private final DeleteProductEggMappingUseCase deleteProductEggMappingUseCase;
+    private final com.project.anhgagifcode.application.port.in.UpdateMappingRatesUseCase updateMappingRatesUseCase;
 
-    @Operation(summary = "Liên kết sản phẩm Kiotviet với loại trứng trong bể quà", description = "Tạo hoặc cập nhật liên kết giữa sản phẩm Kiotviet với loại trứng (1 hoặc 2) của một bể quà chỉ định. Tối đa 2 liên kết (2 loại trứng) cho mỗi sản phẩm.")
+    @Operation(summary = "Liên kết sản phẩm Kiotviet với bể quà", description = "Tạo liên kết giữa sản phẩm Kiotviet với một bể quà chỉ định.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Liên kết thành công"),
-            @ApiResponse(responseCode = "400", description = "Vượt quá số lượng liên kết tối đa hoặc dữ liệu không hợp lệ"),
+            @ApiResponse(responseCode = "400", description = "Dữ liệu không hợp lệ"),
             @ApiResponse(responseCode = "404", description = "Không tìm thấy sản phẩm hoặc bể quà"),
             @ApiResponse(responseCode = "401", description = "Chưa xác thực"),
             @ApiResponse(responseCode = "403", description = "Không có quyền")
@@ -37,7 +38,22 @@ public class ProductEggMappingController {
     @PostMapping
     public ResponseEntity<Map<String, String>> linkProductToEgg(@Valid @RequestBody LinkProductToEggRequest request) {
         linkProductToEggUseCase.linkProductToEgg(request);
-        return ResponseEntity.ok(Map.of("message", "Liên kết sản phẩm với trứng thành công!"));
+        return ResponseEntity.ok(Map.of("message", "Liên kết sản phẩm với bể quà thành công!"));
+    }
+
+    @PutMapping("/products/{productId}/rates")
+    @Operation(summary = "Cập nhật tỉ lệ nhận trứng cho các liên kết của sản phẩm", description = "Cập nhật tỉ lệ nhận trứng cho toàn bộ các liên kết thuộc sản phẩm. Tổng tỉ lệ gửi lên phải bằng 100%.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Cập nhật tỉ lệ thành công"),
+            @ApiResponse(responseCode = "400", description = "Tổng tỉ lệ không bằng 100% hoặc danh sách không khớp"),
+            @ApiResponse(responseCode = "401", description = "Chưa xác thực"),
+            @ApiResponse(responseCode = "403", description = "Không có quyền")
+    })
+    public ResponseEntity<Map<String, String>> updateMappingRates(
+            @PathVariable("productId") Long productId,
+            @Valid @RequestBody java.util.List<com.project.anhgagifcode.application.port.in.dto.UpdateMappingRateRequest> requests) {
+        updateMappingRatesUseCase.updateRates(productId, requests);
+        return ResponseEntity.ok(Map.of("message", "Cập nhật cấu hình tỉ lệ thành công!"));
     }
 
     @Operation(summary = "Xóa một liên kết sản phẩm - trứng", description = "Xóa một quy tắc liên kết sản phẩm - trứng theo ID liên kết.")
