@@ -38,6 +38,8 @@ public class UpdateCustomerStatusService implements UpdateCustomerStatusUseCase 
                 .successCount(savedCustomer.getSuccessCount())
                 .returnStreak(savedCustomer.getReturnStreak())
                 .warningCount(savedCustomer.getWarningCount())
+                .earlyHatchCredits(savedCustomer.getEarlyHatchCredits())
+                .returnCount(savedCustomer.getReturnCount())
                 .createdAt(savedCustomer.getCreatedAt())
                 .build();
     }

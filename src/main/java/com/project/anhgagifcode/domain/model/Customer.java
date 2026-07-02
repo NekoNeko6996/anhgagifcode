@@ -16,6 +16,8 @@ public class Customer {
     private int successCount;
     private int returnStreak;
     private int warningCount;
+    private int earlyHatchCredits;
+    private int returnCount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

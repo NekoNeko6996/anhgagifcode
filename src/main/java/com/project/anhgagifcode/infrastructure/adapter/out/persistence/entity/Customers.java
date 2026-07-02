@@ -77,6 +77,14 @@ public class Customers implements Serializable {
     private int warningCount;
     @Basic(optional = false)
     @NotNull
+    @Column(name = "early_hatch_credits")
+    private int earlyHatchCredits;
+    @Basic(optional = false)
+    @NotNull
+    @Column(name = "return_count")
+    private int returnCount;
+    @Basic(optional = false)
+    @NotNull
     @Column(name = "created_at")
     @Temporal(TemporalType.TIMESTAMP)
     private Date createdAt;
@@ -202,6 +210,22 @@ public class Customers implements Serializable {
             return false;
         }
         return true;
+    }
+
+    public int getEarlyHatchCredits() {
+        return earlyHatchCredits;
+    }
+
+    public void setEarlyHatchCredits(int earlyHatchCredits) {
+        this.earlyHatchCredits = earlyHatchCredits;
+    }
+
+    public int getReturnCount() {
+        return returnCount;
+    }
+
+    public void setReturnCount(int returnCount) {
+        this.returnCount = returnCount;
     }
 
     @Override

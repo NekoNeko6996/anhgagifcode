@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+    <head th:replace="~{admin/fragments :: htmlHeader('Duyệt Trứng Sớm')}"></head>
+
+    <body>
+        <!-- Sidebar -->
+        <div th:replace="~{admin/fragments :: sidebar('earlyHatch')}"></div>
+
+        <!-- Main Content Wrapper -->
+        <div class="main-wrapper">
+            <!-- Topbar -->
+            <div th:replace="~{admin/fragments :: topbar('Duyệt Trứng Sớm (Manual Approval)')}"></div>
+
+            <!-- Content Area -->
+            <div class="content-area">
+                <!-- Info Section -->
+                <div class="excel-guide-box" style="margin-bottom: 24px;">
+                    <div class="excel-guide-title">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <span>Quy tắc duyệt sớm:</span>
+                    </div>
+                    <ul class="excel-guide-list">
+                        <li>Trang này hiển thị danh sách các **trứng đang ấp** (của đơn hàng chứa > 1 sản phẩm hoặc số lượng > 1) của khách hàng hiện có **Tín dụng duyệt sớm (Early Hatch Credits) > 0**.</li>
+                        <li>Mỗi lần duyệt sẽ trừ của khách hàng **1 điểm tín dụng** và giảm thời gian ấp của quả trứng đó đi **3 ngày**.</li>
+                        <li>Nếu thời gian nở mới nhỏ hơn hoặc bằng thời điểm hiện tại, trứng sẽ tự động chuyển sang trạng thái **Sẵn sàng để nhận (READY_TO_CLAIM)**.</li>
+                    </ul>
+                </div>
+
+                <!-- Main Grouped Cards Container -->
+                <div id="eligibleListContainer">
+                    <div class="card" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                        <i class="fa-solid fa-spinner fa-spin" style="font-size: 2rem; margin-bottom: 12px; color: var(--accent-color);"></i>
+                        <div>Đang tải dữ liệu...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <th:block th:replace="~{admin/fragments :: footerScripts}"></th:block>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                loadEligibleData();
+            });
+
+            async function loadEligibleData() {
+                const container = document.getElementById('eligibleListContainer');
+                try {
+                    const response = await fetchWithAuth('/api/admin/eggs/early-hatch/eligible');
+                    if (!response) return;
+
+                    if (!response.ok) {
+                        container.innerHTML = `
+                            <div class="card" style="text-align: center; padding: 40px; color: var(--danger-color);">
+                                <i class="fa-solid fa-circle-exclamation" style="font-size: 2rem; margin-bottom: 12px;"></i>
+                                <div>Lấy dữ liệu thất bại! Lỗi từ máy chủ.</div>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    const data = await response.json();
+
+                    if (!data || data.length === 0) {
+                        container.innerHTML = `
+                            <div class="card" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                                <i class="fa-solid fa-folder-open" style="font-size: 2.5rem; margin-bottom: 12px; opacity: 0.5;"></i>
+                                <div>Hiện tại không có trứng nào đủ điều kiện chờ duyệt sớm.</div>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    let html = '';
+                    data.forEach(cust => {
+                        html += `
+                            <div class="card" style="margin-bottom: 24px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 14px; margin-bottom: 18px; flex-wrap: wrap; gap: 12px;">
+                                    <div style="display: flex; align-items: center; gap: 12px;">
+                                        <i class="fa-solid fa-user-tag" style="color: var(--accent-color); font-size: 1.25rem;"></i>
+                                        <span style="font-weight: 700; font-size: 1.1rem; color: var(--text-primary);">Khách hàng: ${cust.customerCode}</span>
+                                    </div>
+                                    <div style="display: flex; gap: 10px;">
+                                        <span class="status-badge" style="background: rgba(46, 204, 113, 0.15); color: #2ecc71;">
+                                            <i class="fa-solid fa-circle-check"></i> Mở thành công: ${cust.successCount}
+                                        </span>
+                                        <span class="status-badge" style="background: rgba(241, 196, 15, 0.15); color: #f1c40f;">
+                                            <i class="fa-solid fa-bolt"></i> Tín dụng duyệt sớm: ${cust.earlyHatchCredits}
+                                        </span>
+                                    </div>
+                                </div>
+                        `;
+
+                        cust.orders.forEach(order => {
+                            html += `
+                                <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                                        <div style="font-weight: 600; color: var(--text-primary);">
+                                            Đơn hàng: <span style="color: var(--accent-color); font-family: monospace;">${order.orderCode}</span>
+                                        </div>
+                                    </div>
+                                    <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 14px;">
+                                        <i class="fa-solid fa-basket-shopping" style="margin-right: 6px;"></i> Chi tiết: ${order.skuDetails}
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px;">
+                            `;
+
+                            order.eggs.forEach(egg => {
+                                html += `
+                                        <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between;">
+                                            <div style="margin-bottom: 12px;">
+                                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                                    <span style="font-weight: 600; font-size: 0.9rem;">Trứng Loại ${egg.eggType}</span>
+                                                    <span class="status-badge" style="background: rgba(230, 126, 34, 0.15); color: #e67e22;">Đang ấp</span>
+                                                </div>
+                                                <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 4px;">
+                                                    ID: <span style="font-family: monospace;">${egg.eggId.substring(0, 8)}...</span>
+                                                </div>
+                                                <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                                                    <i class="fa-regular fa-clock" style="margin-right: 4px;"></i> Dự kiến nở: ${formatDateTime(egg.hatchAt)}
+                                                </div>
+                                            </div>
+                                            <button class="btn btn-secondary btn-sm" onclick="approveEarlyHatch('${egg.eggId}')" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px;">
+                                                <i class="fa-solid fa-clock-rotate-left"></i> Giảm 3 ngày ấp
+                                            </button>
+                                        </div>
+                                `;
+                            });
+
+                            html += `
+                                    </div>
+                                </div>
+                            `;
+                        });
+
+                        html += `
+                            </div>
+                        `;
+                    });
+
+                    container.innerHTML = html;
+
+                } catch (error) {
+                    console.error('Error loading eligible items:', error);
+                    container.innerHTML = `
+                        <div class="card" style="text-align: center; padding: 40px; color: var(--danger-color);">
+                            <i class="fa-solid fa-circle-exclamation" style="font-size: 2rem; margin-bottom: 12px;"></i>
+                            <div>Đã xảy ra lỗi khi tải dữ liệu!</div>
+                        </div>
+                    `;
+                }
+            }
+
+            async function approveEarlyHatch(eggId) {
+                if (!confirm("Bạn có chắc chắn muốn duyệt sớm 3 ngày cho quả trứng này? (Thao tác này sẽ tiêu hao 1 điểm tín dụng của khách hàng)")) {
+                    return;
+                }
+
+                try {
+                    const response = await fetchWithAuth(`/api/admin/eggs/${eggId}/reduce-hatch-time-manual`, {
+                        method: 'POST'
+                    });
+
+                    if (response && response.ok) {
+                        showAlert('Duyệt sớm 3 ngày thành công!', 'success');
+                        loadEligibleData();
+                    } else if (response) {
+                        const errorData = await response.json().catch(() => ({}));
+                        showAlert(errorData.message || 'Duyệt sớm thất bại!', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error approving early hatch:', error);
+                    showAlert('Đã xảy ra lỗi khi gửi yêu cầu!', 'error');
+                }
+            }
+        </script>
+    </body>
+</html>

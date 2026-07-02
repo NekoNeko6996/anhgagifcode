@@ -105,13 +105,20 @@ public class ClaimEggService implements ClaimEggUseCase {
 
             // 3.2 Kiểm tra đơn hàng phải giao thành công mới được mở trứng
             String deliveryStatus = syncedOrder.getDeliveryStatus();
-            boolean isReturned = "Đang chuyển hoàn".equalsIgnoreCase(deliveryStatus) || "Đã chuyển hoàn".equalsIgnoreCase(deliveryStatus);
-            if (isReturned) {
+            boolean isReturnedOrCancelled = "Đang chuyển hoàn".equalsIgnoreCase(deliveryStatus) || "Đã chuyển hoàn".equalsIgnoreCase(deliveryStatus)
+                    || "Hủy".equalsIgnoreCase(deliveryStatus) || "Đã hủy".equalsIgnoreCase(deliveryStatus) || "Bị hủy".equalsIgnoreCase(deliveryStatus);
+            if (isReturnedOrCancelled) {
                 if (!"CANCELLED".equals(egg.getStatus())) {
                     egg.setStatus("CANCELLED");
                     eggPort.saveEgg(egg);
                 }
-                throw new BusinessRuleViolationException("Đơn hàng đã bị hoàn trả, trứng này đã bị hủy.");
+                
+                Customer customer = customerPort.loadByCustomerCodeForUpdate(syncedOrder.getCustomerCode())
+                        .orElseThrow(() -> new ResourceNotFoundException("Lỗi dữ liệu khách hàng."));
+                customer.setEarlyHatchCredits(0);
+                customerPort.saveCustomer(customer);
+                
+                throw new BusinessRuleViolationException("Đơn hàng đã bị hoàn trả hoặc hủy, trứng này đã bị hủy.");
             }
 
             boolean isDelivered = "Đã giao hàng".equalsIgnoreCase(deliveryStatus) || "Giao thành công".equalsIgnoreCase(deliveryStatus);
@@ -119,8 +126,8 @@ public class ClaimEggService implements ClaimEggUseCase {
                 throw new BusinessRuleViolationException("Đơn hàng chưa được giao thành công.");
             }
 
-            // 3.3 Load thông tin khách hàng mới nhất
-            Customer customer = customerPort.loadByCustomerCode(syncedOrder.getCustomerCode())
+            // 3.3 Load thông tin khách hàng mới nhất có khóa bi quan
+            Customer customer = customerPort.loadByCustomerCodeForUpdate(syncedOrder.getCustomerCode())
                     .orElseThrow(() -> new ResourceNotFoundException("Lỗi dữ liệu khách hàng."));
 
             // 3.4 Kiểm tra trạng thái cấm (BANNED)
@@ -200,6 +207,12 @@ public class ClaimEggService implements ClaimEggUseCase {
             if (customer.getReturnStreak() == 1) {
                 processAmnesty(customer, syncedOrder);
             }
+
+            // TÍCH LŨY TÍN DỤNG DUYỆT SỚM (Chỉ khi mở thành công trứng loại 2)
+            if (egg.getEggType() == 2 && customer.getReturnCount() == 0 && !"BANNED".equals(customer.getStatus())) {
+                customer.setEarlyHatchCredits(2);
+            }
+            customerPort.saveCustomer(customer);
 
             return ClaimEggResponse.builder()
                     .username(assignedAccount.getUsername())

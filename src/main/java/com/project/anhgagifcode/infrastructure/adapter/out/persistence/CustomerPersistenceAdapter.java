@@ -26,6 +26,12 @@ public class CustomerPersistenceAdapter implements CustomerPersistencePort {
     }
 
     @Override
+    public Optional<Customer> loadByCustomerCodeForUpdate(String customerCode) {
+        return repository.findByCustomerCodeForUpdate(customerCode)
+                .map(mapper::toDomain);
+    }
+
+    @Override
     public Customer saveCustomer(Customer customer) {
         Customers entity = mapper.toEntity(customer);
         Customers savedEntity = repository.save(entity);

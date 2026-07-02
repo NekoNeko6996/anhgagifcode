@@ -28,6 +28,11 @@ public class AdminViewController {
         return "admin/eggs";
     }
 
+    @GetMapping("/early-hatch")
+    public String earlyHatch() {
+        return "admin/early-hatch";
+    }
+
     @GetMapping("/customers")
     public String customers() {
         return "admin/customers";

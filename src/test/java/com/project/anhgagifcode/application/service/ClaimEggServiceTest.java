@@ -111,7 +111,7 @@ class ClaimEggServiceTest {
     @Test
     void claimEggReward_Success_CleanCustomer_Egg1_Immediate() {
         when(eggPort.loadEggForUpdate("egg-uuid")).thenReturn(Optional.of(validEgg));
-        when(customerPort.loadByCustomerCode("CUS88")).thenReturn(Optional.of(cleanCustomer));
+        when(customerPort.loadByCustomerCodeForUpdate("CUS88")).thenReturn(Optional.of(cleanCustomer));
         when(accountPort.pickAvailableAccountForUpdateSkipLocked("pool-uuid")).thenReturn(Optional.of(availableAccount));
 
         ClaimEggResponse response = claimService.claimEggReward("egg-uuid", "127.0.0.1");
@@ -129,7 +129,7 @@ class ClaimEggServiceTest {
     @Test
     void claimEggReward_BannedCustomer_ThrowsException() {
         when(eggPort.loadEggForUpdate("egg-uuid")).thenReturn(Optional.of(validEgg));
-        when(customerPort.loadByCustomerCode("CUS88")).thenReturn(Optional.of(bannedCustomer));
+        when(customerPort.loadByCustomerCodeForUpdate("CUS88")).thenReturn(Optional.of(bannedCustomer));
 
         BusinessRuleViolationException exception = assertThrows(BusinessRuleViolationException.class, () -> {
             claimService.claimEggReward("egg-uuid", "127.0.0.1");
@@ -144,7 +144,7 @@ class ClaimEggServiceTest {
         validEgg.setStatus("HATCHING");
         validEgg.setHatchAt(LocalDateTime.now().plusDays(2)); // Hatch date in future
         when(eggPort.loadEggForUpdate("egg-uuid")).thenReturn(Optional.of(validEgg));
-        when(customerPort.loadByCustomerCode("CUS88")).thenReturn(Optional.of(cleanCustomer));
+        when(customerPort.loadByCustomerCodeForUpdate("CUS88")).thenReturn(Optional.of(cleanCustomer));
 
         BusinessRuleViolationException exception = assertThrows(BusinessRuleViolationException.class, () -> {
             claimService.claimEggReward("egg-uuid", "127.0.0.1");
@@ -160,7 +160,7 @@ class ClaimEggServiceTest {
         validEgg.setHatchAt(LocalDateTime.now().minusMinutes(5)); // Cooldown finished
         validOrder.setCreatedAt(LocalDateTime.now()); // Make it recent
         when(eggPort.loadEggForUpdate("egg-uuid")).thenReturn(Optional.of(validEgg));
-        when(customerPort.loadByCustomerCode("CUS88")).thenReturn(Optional.of(cleanCustomer));
+        when(customerPort.loadByCustomerCodeForUpdate("CUS88")).thenReturn(Optional.of(cleanCustomer));
         when(accountPort.pickAvailableAccountForUpdateSkipLocked("pool-uuid")).thenReturn(Optional.of(availableAccount));
 
         ClaimEggResponse response = claimService.claimEggReward("egg-uuid", "127.0.0.1");
@@ -193,7 +193,7 @@ class ClaimEggServiceTest {
         validOrder.setUpdatedAt(LocalDateTime.now().minusDays(20)); // Absolute success
 
         when(eggPort.loadEggForUpdate("egg-uuid")).thenReturn(Optional.of(validEgg));
-        when(customerPort.loadByCustomerCode("CUS88")).thenReturn(Optional.of(warningCustomer));
+        when(customerPort.loadByCustomerCodeForUpdate("CUS88")).thenReturn(Optional.of(warningCustomer));
         when(accountPort.pickAvailableAccountForUpdateSkipLocked("pool-uuid")).thenReturn(Optional.of(availableAccount));
 
         // Mock two orders post-return that are fully claimed and successful
@@ -229,7 +229,7 @@ class ClaimEggServiceTest {
         claimService.claimEggReward("egg-uuid", "127.0.0.1");
 
         // Verify return streak is reset to 0
-        verify(customerPort, times(1)).saveCustomer(argThat(cus -> cus.getReturnStreak() == 0 && "TRUSTED_1".equals(cus.getStatus())));
+        verify(customerPort, times(2)).saveCustomer(argThat(cus -> cus.getReturnStreak() == 0 && "TRUSTED_1".equals(cus.getStatus())));
     }
 
     @Test
@@ -244,5 +244,34 @@ class ClaimEggServiceTest {
         assertEquals("Steam", response.getPlatform());
         assertEquals("A", response.getTier());
         assertTrue(response.getMessage().contains("thông tin tài khoản"));
+    }
+
+    @Test
+    void claimEggReward_EggType2_Success_RewardsCredits() {
+        validEgg.setEggType(2);
+        validEgg.setStatus("READY_TO_CLAIM");
+        validEgg.setHatchAt(LocalDateTime.now().minusMinutes(5));
+        when(eggPort.loadEggForUpdate("egg-uuid")).thenReturn(Optional.of(validEgg));
+        when(customerPort.loadByCustomerCodeForUpdate("CUS88")).thenReturn(Optional.of(cleanCustomer));
+        when(accountPort.pickAvailableAccountForUpdateSkipLocked("pool-uuid")).thenReturn(Optional.of(availableAccount));
+
+        claimService.claimEggReward("egg-uuid", "127.0.0.1");
+
+        assertEquals(2, cleanCustomer.getEarlyHatchCredits());
+    }
+
+    @Test
+    void claimEggReward_EggType1_Success_DoesNotRewardCredits() {
+        validEgg.setEggType(1);
+        validEgg.setStatus("READY_TO_CLAIM");
+        validEgg.setHatchAt(null);
+        cleanCustomer.setEarlyHatchCredits(0);
+        when(eggPort.loadEggForUpdate("egg-uuid")).thenReturn(Optional.of(validEgg));
+        when(customerPort.loadByCustomerCodeForUpdate("CUS88")).thenReturn(Optional.of(cleanCustomer));
+        when(accountPort.pickAvailableAccountForUpdateSkipLocked("pool-uuid")).thenReturn(Optional.of(availableAccount));
+
+        claimService.claimEggReward("egg-uuid", "127.0.0.1");
+
+        assertEquals(0, cleanCustomer.getEarlyHatchCredits());
     }
 }

@@ -67,6 +67,21 @@ public class UseCaseConfig {
     }
 
     @Bean
+    public GetEarlyHatchEligibleUseCase getEarlyHatchEligibleUseCase(
+            EggPersistencePort eggPort,
+            CustomerPersistencePort customerPort,
+            KiotvietProductPersistencePort productPort) {
+        return new GetEarlyHatchEligibleService(eggPort, customerPort, productPort);
+    }
+
+    @Bean
+    public ApproveEarlyHatchUseCase approveEarlyHatchUseCase(
+            EggPersistencePort eggPort,
+            CustomerPersistencePort customerPort) {
+        return new ApproveEarlyHatchService(eggPort, customerPort, transactionManager);
+    }
+
+    @Bean
     public GetGiftPoolsUseCase getGiftPoolsUseCase(GiftPoolPersistencePort poolPort) {
         return new GetGiftPoolsService(poolPort);
     }

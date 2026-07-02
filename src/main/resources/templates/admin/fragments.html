@@ -34,6 +34,12 @@
                         <span>Quản Lý Trứng</span>
                     </a>
                 </li>
+                <li class="sidebar-item" th:classappend="${activePage == 'earlyHatch' ? 'active' : ''}">
+                    <a th:href="@{/admin/early-hatch}">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                        <span>Duyệt Trứng Sớm</span>
+                    </a>
+                </li>
                 <li class="sidebar-item" th:classappend="${activePage == 'customers' ? 'active' : ''}">
                     <a th:href="@{/admin/customers}">
                         <i class="fa-solid fa-users"></i>

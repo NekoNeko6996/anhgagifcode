@@ -111,6 +111,10 @@ class SyncKiotvietOrderServiceTest {
                 .build();
 
         lenient().when(transactionManager.getTransaction(any())).thenReturn(mock(org.springframework.transaction.TransactionStatus.class));
+        lenient().when(customerPort.loadByCustomerCodeForUpdate(anyString())).thenAnswer(invocation -> {
+            String code = invocation.getArgument(0);
+            return customerPort.loadByCustomerCode(code);
+        });
     }
 
     @Test

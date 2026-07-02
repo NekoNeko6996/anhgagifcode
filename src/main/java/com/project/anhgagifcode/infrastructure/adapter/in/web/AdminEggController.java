@@ -2,6 +2,9 @@ package com.project.anhgagifcode.infrastructure.adapter.in.web;
 
 import com.project.anhgagifcode.application.port.in.GetEggsUseCase;
 import com.project.anhgagifcode.application.port.in.UpdateEggHatchTimeUseCase;
+import com.project.anhgagifcode.application.port.in.GetEarlyHatchEligibleUseCase;
+import com.project.anhgagifcode.application.port.in.ApproveEarlyHatchUseCase;
+import com.project.anhgagifcode.application.port.in.dto.EarlyHatchGroupDto;
 import com.project.anhgagifcode.application.port.in.dto.EggDto;
 import com.project.anhgagifcode.application.port.in.dto.UpdateHatchTimeRequest;
 import io.swagger.v3.oas.annotations.Operation;
@@ -24,6 +27,8 @@ public class AdminEggController {
 
     private final GetEggsUseCase getEggsUseCase;
     private final UpdateEggHatchTimeUseCase updateEggHatchTimeUseCase;
+    private final GetEarlyHatchEligibleUseCase getEarlyHatchEligibleUseCase;
+    private final ApproveEarlyHatchUseCase approveEarlyHatchUseCase;
 
     @Operation(summary = "Lấy danh sách tất cả các quả trứng", description = "Trả về danh sách toàn bộ trứng trong hệ thống kèm thông tin chi tiết về đơn hàng, tài khoản quà và bể quà liên quan.")
     @ApiResponses({
@@ -42,6 +47,19 @@ public class AdminEggController {
             @PathVariable("id") String eggId,
             @RequestBody UpdateHatchTimeRequest request) {
         updateEggHatchTimeUseCase.updateHatchTime(eggId, request.getHatchAt());
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Lấy danh sách trứng đủ điều kiện duyệt sớm", description = "Lấy danh sách trứng đang ấp của đơn nhiều sản phẩm/số lượng lớn và khách hàng có tín dụng duyệt sớm.")
+    @GetMapping("/early-hatch/eligible")
+    public ResponseEntity<List<EarlyHatchGroupDto>> getEarlyHatchEligible() {
+        return ResponseEntity.ok(getEarlyHatchEligibleUseCase.getEligibleItems());
+    }
+
+    @Operation(summary = "Duyệt sớm 3 ngày cho trứng (Trừ 1 tín dụng)", description = "Khấu trừ 1 early_hatch_credits của khách hàng và giảm 3 ngày ấp của quả trứng.")
+    @PostMapping("/{id}/reduce-hatch-time-manual")
+    public ResponseEntity<Void> approveEarlyHatch(@PathVariable("id") String eggId) {
+        approveEarlyHatchUseCase.approveEarlyHatch(eggId);
         return ResponseEntity.ok().build();
     }
 }

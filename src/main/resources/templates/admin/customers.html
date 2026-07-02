@@ -48,13 +48,15 @@
                                 <th>Số Đơn Thành Công</th>
                                 <th>Chuỗi Hoàn Hàng</th>
                                 <th>Số Lần Cảnh Báo</th>
+                                <th>Tín Dụng Duyệt Sớm</th>
+                                <th>Tổng Đơn Hoàn</th>
                                 <th>Ngày Tạo</th>
                                 <th>Hành Động</th>
                             </tr>
                         </thead>
                         <tbody id="customersTableBody">
                             <tr>
-                                <td colspan="8" style="text-align: center; color: var(--text-secondary);">Đang tải dữ liệu...</td>
+                                <td colspan="10" style="text-align: center; color: var(--text-secondary);">Đang tải dữ liệu...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -133,7 +135,7 @@
             tbody.innerHTML = '';
 
             if (customers.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-secondary);">Không có khách hàng nào được ghi nhận</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--text-secondary);">Không có khách hàng nào được ghi nhận</td></tr>`;
                 return;
             }
 
@@ -166,6 +168,16 @@
                     <td>${customer.successCount}</td>
                     <td>${streakLabel}</td>
                     <td>${customer.warningCount}</td>
+                    <td>
+                        <span style="background: rgba(241, 196, 15, 0.15); color: #f1c40f; padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 0.85rem;">
+                            <i class="fa-solid fa-bolt"></i> ${customer.earlyHatchCredits}
+                        </span>
+                    </td>
+                    <td>
+                        <span style="font-weight: 600; color: ${customer.returnCount > 0 ? '#e74c3c' : 'var(--text-secondary)'};">
+                            ${customer.returnCount}
+                        </span>
+                    </td>
                     <td>${formatDateTime(customer.createdAt)}</td>
                     <td>
                         <button class="btn btn-secondary" style="padding: 6px 12px; font-size:12px;" onclick="openEditModal('${customer.customerCode}', '${customer.customerName}', '${customer.status}', ${customer.successCount}, ${customer.returnStreak})">

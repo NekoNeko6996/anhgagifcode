@@ -35,6 +35,12 @@ public class CustomerDto {
     @Schema(description = "Số lần cảnh báo")
     private int warningCount;
     
+    @Schema(description = "Số lượt được duyệt sớm")
+    private int earlyHatchCredits;
+
+    @Schema(description = "Tổng số lượng đơn hoàn")
+    private int returnCount;
+
     @Schema(description = "Thời gian tạo tài khoản")
     private LocalDateTime createdAt;
     

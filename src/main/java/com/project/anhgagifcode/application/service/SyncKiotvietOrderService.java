@@ -244,6 +244,15 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
             boolean isReturnedNow = "Đang chuyển hoàn".equalsIgnoreCase(apiOrder.getDeliveryStatus()) 
                     || "Đã chuyển hoàn".equalsIgnoreCase(apiOrder.getDeliveryStatus());
 
+            boolean wasReturnedOrCancelledBefore = wasReturnedBefore
+                    || "Hủy".equalsIgnoreCase(dbOrder.getDeliveryStatus())
+                    || "Đã hủy".equalsIgnoreCase(dbOrder.getDeliveryStatus())
+                    || "Bị hủy".equalsIgnoreCase(dbOrder.getDeliveryStatus());
+            boolean isReturnedOrCancelledNow = isReturnedNow
+                    || "Hủy".equalsIgnoreCase(apiOrder.getDeliveryStatus())
+                    || "Đã hủy".equalsIgnoreCase(apiOrder.getDeliveryStatus())
+                    || "Bị hủy".equalsIgnoreCase(apiOrder.getDeliveryStatus());
+
             boolean wasDeliveredBefore = "Đã giao hàng".equalsIgnoreCase(dbOrder.getDeliveryStatus())
                     || "Giao thành công".equalsIgnoreCase(dbOrder.getDeliveryStatus());
             boolean isDeliveredNow = "Đã giao hàng".equalsIgnoreCase(apiOrder.getDeliveryStatus())
@@ -265,7 +274,7 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
 
             KiotvietOrder updatedOrder = orderPort.saveOrder(dbOrder);
 
-            Customer customer = customerPort.loadByCustomerCode(dbOrder.getCustomerCode()).orElseGet(() -> {
+            Customer customer = customerPort.loadByCustomerCodeForUpdate(dbOrder.getCustomerCode()).orElseGet(() -> {
                 Customer newCus = new Customer();
                 newCus.setId(UUID.randomUUID().toString());
                 newCus.setCustomerCode(dbOrder.getCustomerCode());
@@ -273,6 +282,8 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
                 newCus.setSuccessCount(0);
                 newCus.setReturnStreak(0);
                 newCus.setWarningCount(0);
+                newCus.setEarlyHatchCredits(0);
+                newCus.setReturnCount(0);
                 newCus.setCreatedAt(LocalDateTime.now());
                 return newCus;
             });
@@ -294,15 +305,20 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
                 }
             }
 
-            if (isReturnedNow && !wasReturnedBefore) {
-                customer.setReturnStreak(customer.getReturnStreak() + 1);
-                if (customer.getReturnStreak() == 1) {
-                    customer.setStatus("WARNING");
-                } else if (customer.getReturnStreak() >= 2) {
-                    customer.setStatus("BANNED");
+            if (isReturnedOrCancelledNow && !wasReturnedOrCancelledBefore) {
+                customer.setEarlyHatchCredits(0); // Reset early hatch credits on return/cancel
+
+                if (isReturnedNow && !wasReturnedBefore) {
+                    customer.setReturnStreak(customer.getReturnStreak() + 1);
+                    customer.setReturnCount(customer.getReturnCount() + 1); // Increment return_count
+                    if (customer.getReturnStreak() == 1) {
+                        customer.setStatus("WARNING");
+                    } else if (customer.getReturnStreak() >= 2) {
+                        customer.setStatus("BANNED");
+                    }
                 }
 
-                // Hủy tất cả trứng khi đơn hàng bị hoàn/trả
+                // Hủy tất cả trứng khi đơn hàng bị hoàn/trả/hủy
                 List<Egg> eggs = eggPort.loadEggsByOrderId(dbOrder.getId());
                 for (Egg egg : eggs) {
                     egg.setStatus("CANCELLED");
@@ -342,8 +358,18 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
             return;
         }
 
-        Customer customer = customerPort.loadByCustomerCode(order.getCustomerCode())
+        Customer customer = customerPort.loadByCustomerCodeForUpdate(order.getCustomerCode())
                 .orElseThrow(() -> new ResourceNotFoundException("Lỗi dữ liệu khách hàng."));
+
+        boolean isSingleItem = order.getOrderItems() != null && order.getOrderItems().size() == 1
+                && order.getOrderItems().get(0).getQuantity() == 1;
+        boolean useCredit = false;
+
+        if (isSingleItem && customer.getEarlyHatchCredits() > 0) {
+            customer.setEarlyHatchCredits(customer.getEarlyHatchCredits() - 1);
+            customerPort.saveCustomer(customer);
+            useCredit = true;
+        }
 
         // Draw pool for Egg 1 (Type 1)
         ProductEggMapping mapping1 = drawMappingFromList(mappings);
@@ -351,6 +377,9 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
             LocalDateTime hatchAt = null;
             if (customer.getReturnStreak() == 1) {
                 hatchAt = LocalDateTime.now().plusDays(15);
+                if (useCredit) {
+                    hatchAt = hatchAt.minusDays(3);
+                }
             }
 
             String initialStatus = "READY_TO_CLAIM";
@@ -379,6 +408,9 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
         ProductEggMapping mapping2 = drawMappingFromList(mappings);
         if (mapping2 != null) {
             LocalDateTime hatchAt = LocalDateTime.now().plusDays(15);
+            if (useCredit) {
+                hatchAt = hatchAt.minusDays(3);
+            }
 
             Egg egg2 = Egg.builder()
                     .id(UUID.randomUUID().toString())

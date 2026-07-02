@@ -24,6 +24,8 @@ public class GetCustomersService implements GetCustomersUseCase {
                         .successCount(c.getSuccessCount())
                         .returnStreak(c.getReturnStreak())
                         .warningCount(c.getWarningCount())
+                        .earlyHatchCredits(c.getEarlyHatchCredits())
+                        .returnCount(c.getReturnCount())
                         .createdAt(c.getCreatedAt())
                         .updatedAt(c.getUpdatedAt())
                         .build())
