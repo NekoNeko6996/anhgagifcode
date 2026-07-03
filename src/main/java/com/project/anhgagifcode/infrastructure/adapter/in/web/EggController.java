@@ -53,7 +53,10 @@ public class EggController {
         // Lấy IP để ghi Log hệ thống
         String ipAddress = getClientIp(httpRequest);
         
-        ClaimEggResponse response = claimUseCase.claimEggReward(request.getEggId(), ipAddress);
+        ClaimEggResponse response = claimUseCase.claimEggReward(
+                request.getOrderId(), 
+                request.getEggType(), 
+                ipAddress);
         return ResponseEntity.ok(response);
     }
 

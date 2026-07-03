@@ -14,6 +14,7 @@ public class ProductEggMapping {
     private GiftPool giftPoolId;   
     private String eggTier;       
     private double rate;
+    private int mappingsType;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

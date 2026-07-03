@@ -60,6 +60,10 @@ public class ProductEggMappings implements Serializable {
     @NotNull
     @Column(name = "rate")
     private double rate;
+    @Basic(optional = false)
+    @NotNull
+    @Column(name = "mappings_type")
+    private int mappingsType;
     @JoinColumn(name = "gift_pool_id", referencedColumnName = "id")
     @ManyToOne(optional = false)
     private GiftPools giftPoolId;
@@ -73,6 +77,14 @@ public class ProductEggMappings implements Serializable {
 
     public void setRate(double rate) {
         this.rate = rate;
+    }
+
+    public int getMappingsType() {
+        return mappingsType;
+    }
+
+    public void setMappingsType(int mappingsType) {
+        this.mappingsType = mappingsType;
     }
 
     public ProductEggMappings() {

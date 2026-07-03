@@ -11,7 +11,10 @@ import lombok.Value;
 @Value
 public class SyncOrderResponse {
     private String customerName;
-    private String customerStatus; // Hiển thị cấp độ VIP của khách (TRUSTED_1, TRUSTED_2)
+    private String customerStatus;
+    private String orderId;
     private String deliveryStatus;
     private List<EggDisplayDto> eggs;
+    private int totalType1Eggs;
+    private int totalType2Eggs;
 }

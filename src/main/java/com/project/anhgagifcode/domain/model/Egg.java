@@ -15,6 +15,7 @@ public class Egg {
     private LocalDateTime hatchAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private String productCode;
     
     // Đổi tham chiếu từ SapoOrder sang KiotvietOrder
     private KiotvietOrder order;

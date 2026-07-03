@@ -31,4 +31,7 @@ public class ProductMappingDto {
     
     @Schema(description = "Thời gian cập nhật")
     private LocalDateTime updatedAt;
+
+    @Schema(description = "Loại mapping (1: Trứng thường, 2: Trứng ấp)")
+    private Integer mappingsType;
 }

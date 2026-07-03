@@ -24,4 +24,10 @@ public class LinkProductToEggRequest {
     @NotBlank(message = "ID bể quà không được để trống")
     @Schema(description = "ID của bể quà (Gift Pool)")
     private String poolId;
+
+    @NotNull(message = "Loại mapping không được để trống")
+    @Min(value = 1, message = "Loại mapping không hợp lệ")
+    @Max(value = 2, message = "Loại mapping không hợp lệ")
+    @Schema(description = "Loại mapping (1: Trứng thường, 2: Trứng ấp)")
+    private Integer mappingsType;
 }

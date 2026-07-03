@@ -3,6 +3,7 @@ package com.project.anhgagifcode.application.service;
 import com.project.anhgagifcode.application.port.in.ClaimEggUseCase;
 import com.project.anhgagifcode.application.port.in.SyncKiotvietOrderUseCase;
 import com.project.anhgagifcode.application.port.in.dto.ClaimEggResponse;
+import com.project.anhgagifcode.application.port.in.dto.ClaimedAccountDto;
 import com.project.anhgagifcode.application.port.out.*;
 import com.project.anhgagifcode.domain.exception.BusinessRuleViolationException;
 import com.project.anhgagifcode.domain.exception.ResourceNotFoundException;
@@ -12,7 +13,9 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -48,69 +51,95 @@ public class ClaimEggService implements ClaimEggUseCase {
     }
 
     @Override
-    public ClaimEggResponse claimEggReward(String eggId, String ipAddress) {
-        // 1. Tải thông tin trứng không khóa (Read-Only) để lấy đơn hàng
-        Egg initialEgg = eggPort.findById(eggId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy trứng hợp lệ."));
-
-        // Nếu trứng đã được mở trước đó, trả về thông tin tài khoản VIP ngay lập tức mà không cần đồng bộ hóa đơn hàng
-        if ("CLAIMED".equals(initialEgg.getStatus())) {
-            GiftAccount assignedAccount = initialEgg.getAccount();
-            if (assignedAccount != null) {
-                return ClaimEggResponse.builder()
-                        .username(assignedAccount.getUsername())
-                        .password(assignedAccount.getPassword())
-                        .platform(assignedAccount.getPlatform())
-                        .tier(initialEgg.getGiftPool() != null ? initialEgg.getGiftPool().getTier() : null)
-                        .message("Dưới đây là thông tin tài khoản đã nhận của bạn.")
-                        .build();
-            } else {
-                throw new BusinessRuleViolationException("Trứng đã mở nhưng không tìm thấy thông tin quà tặng.");
-            }
-        }
-        if ("CANCELLED".equals(initialEgg.getStatus())) {
-            throw new BusinessRuleViolationException("Trứng này đã bị hủy.");
+    public ClaimEggResponse claimEggReward(String orderId, int eggType, String ipAddress) {
+        // 1. Tải thông tin trứng trong nhóm (Read-Only) để lấy đơn hàng
+        List<Egg> initialEggs = eggPort.loadEggsForClaimReadOnly(orderId, eggType);
+        if (initialEggs.isEmpty()) {
+            throw new ResourceNotFoundException("Không tìm thấy trứng hợp lệ cho đơn hàng và sản phẩm này.");
         }
 
-        // 2. Đồng bộ trạng thái đơn hàng thời gian thực ngoài Transaction nếu quá hạn 5 phút cache
-        KiotvietOrder syncedOrder = syncOrderUseCase.syncOrderIfNeeded(initialEgg.getOrder());
+        Egg firstEgg = initialEggs.get(0);
 
-        // 3. Thực hiện bốc quà và cập nhật trạng thái trong Transaction
-        return transactionTemplate.execute(status -> {
-            // 3.1 Load và Khóa Trứng (Lock For Update)
-            Egg egg = eggPort.loadEggForUpdate(eggId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy trứng hợp lệ."));
-
-            // Nếu trứng đã được mở trong lúc đồng bộ, trả về thông tin tài khoản VIP
-            if ("CLAIMED".equals(egg.getStatus())) {
+        // Nếu tất cả trứng trong nhóm đã được mở trước đó, trả về danh sách tài khoản ngay lập tức
+        boolean allInitiallyClaimed = initialEggs.stream().allMatch(e -> "CLAIMED".equals(e.getStatus()));
+        if (allInitiallyClaimed) {
+            List<ClaimedAccountDto> claimedAccounts = new ArrayList<>();
+            for (Egg egg : initialEggs) {
                 GiftAccount assignedAccount = egg.getAccount();
                 if (assignedAccount != null) {
-                    return ClaimEggResponse.builder()
+                    claimedAccounts.add(ClaimedAccountDto.builder()
                             .username(assignedAccount.getUsername())
                             .password(assignedAccount.getPassword())
                             .platform(assignedAccount.getPlatform())
                             .tier(egg.getGiftPool() != null ? egg.getGiftPool().getTier() : null)
-                            .message("Dưới đây là thông tin tài khoản đã nhận của bạn.")
-                            .build();
-                } else {
-                    throw new BusinessRuleViolationException("Trứng đã mở nhưng không tìm thấy thông tin quà tặng.");
+                            .build());
                 }
             }
-            if ("CANCELLED".equals(egg.getStatus())) {
-                throw new BusinessRuleViolationException("Trứng này đã bị hủy.");
+            return ClaimEggResponse.builder()
+                    .accounts(claimedAccounts)
+                    .stuckCount(0)
+                    .message("Dưới đây là danh sách thông tin tài khoản đã nhận của bạn.")
+                    .build();
+        }
+
+        boolean anyCancelled = initialEggs.stream().anyMatch(e -> "CANCELLED".equals(e.getStatus()));
+        if (anyCancelled) {
+            throw new BusinessRuleViolationException("Nhóm trứng này đã bị hủy.");
+        }
+
+        // 2. Đồng bộ trạng thái đơn hàng thời gian thực ngoài Transaction nếu quá hạn 5 phút cache
+        KiotvietOrder syncedOrder = syncOrderUseCase.syncOrderIfNeeded(firstEgg.getOrder());
+
+        // 3. Thực hiện bốc quà và cập nhật trạng thái trong Transaction
+        return transactionTemplate.execute(status -> {
+            // 3.1 Load và Khóa danh sách Trứng (Lock For Update)
+            List<Egg> eggsToClaim = eggPort.loadEggsForClaim(orderId, eggType);
+            if (eggsToClaim.isEmpty()) {
+                throw new ResourceNotFoundException("Không tìm thấy trứng hợp lệ cho đơn hàng và sản phẩm này.");
+            }
+
+            // Nếu tất cả trứng đã được mở trong lúc đồng bộ, trả về danh sách tài khoản
+            boolean allClaimed = eggsToClaim.stream().allMatch(e -> "CLAIMED".equals(e.getStatus()));
+            if (allClaimed) {
+                List<ClaimedAccountDto> claimedAccounts = new ArrayList<>();
+                for (Egg egg : eggsToClaim) {
+                    GiftAccount assignedAccount = egg.getAccount();
+                    if (assignedAccount != null) {
+                        claimedAccounts.add(ClaimedAccountDto.builder()
+                                .username(assignedAccount.getUsername())
+                                .password(assignedAccount.getPassword())
+                                .platform(assignedAccount.getPlatform())
+                                .tier(egg.getGiftPool() != null ? egg.getGiftPool().getTier() : null)
+                                .build());
+                    }
+                }
+                return ClaimEggResponse.builder()
+                        .accounts(claimedAccounts)
+                        .stuckCount(0)
+                        .message("Dưới đây là danh sách thông tin tài khoản đã nhận của bạn.")
+                        .build();
+            }
+
+            boolean hasCancelled = eggsToClaim.stream().anyMatch(e -> "CANCELLED".equals(e.getStatus()));
+            if (hasCancelled) {
+                throw new BusinessRuleViolationException("Nhóm trứng này đã bị hủy.");
             }
 
             // Đảm bảo trứng tham chiếu tới order đã được đồng bộ mới nhất
-            egg.setOrder(syncedOrder);
+            for (Egg egg : eggsToClaim) {
+                egg.setOrder(syncedOrder);
+            }
 
             // 3.2 Kiểm tra đơn hàng phải giao thành công mới được mở trứng
             String deliveryStatus = syncedOrder.getDeliveryStatus();
             boolean isReturnedOrCancelled = "Đang chuyển hoàn".equalsIgnoreCase(deliveryStatus) || "Đã chuyển hoàn".equalsIgnoreCase(deliveryStatus)
                     || "Hủy".equalsIgnoreCase(deliveryStatus) || "Đã hủy".equalsIgnoreCase(deliveryStatus) || "Bị hủy".equalsIgnoreCase(deliveryStatus);
             if (isReturnedOrCancelled) {
-                if (!"CANCELLED".equals(egg.getStatus())) {
-                    egg.setStatus("CANCELLED");
-                    eggPort.saveEgg(egg);
+                for (Egg egg : eggsToClaim) {
+                    if (!"CANCELLED".equals(egg.getStatus())) {
+                        egg.setStatus("CANCELLED");
+                        eggPort.saveEgg(egg);
+                    }
                 }
                 
                 Customer customer = customerPort.loadByCustomerCodeForUpdate(syncedOrder.getCustomerCode())
@@ -118,7 +147,7 @@ public class ClaimEggService implements ClaimEggUseCase {
                 customer.setEarlyHatchCredits(0);
                 customerPort.saveCustomer(customer);
                 
-                throw new BusinessRuleViolationException("Đơn hàng đã bị hoàn trả hoặc hủy, trứng này đã bị hủy.");
+                throw new BusinessRuleViolationException("Đơn hàng đã bị hoàn trả hoặc hủy, nhóm trứng này đã bị hủy.");
             }
 
             boolean isDelivered = "Đã giao hàng".equalsIgnoreCase(deliveryStatus) || "Giao thành công".equalsIgnoreCase(deliveryStatus);
@@ -136,90 +165,130 @@ public class ClaimEggService implements ClaimEggUseCase {
             }
 
             // 3.5 Cập nhật trạng thái trứng động dựa trên thông tin thực tế mới nhất trước khi kiểm tra
-            String dynamicStatus;
+            for (Egg egg : eggsToClaim) {
+                if (!"CLAIMED".equals(egg.getStatus()) && !"CANCELLED".equals(egg.getStatus())) {
+                    String dynamicStatus;
+                    if (!isDelivered) {
+                        dynamicStatus = "WAITING_ORDER_COMPLETION";
+                    } else {
+                        boolean inHatchCooldown = egg.getHatchAt() != null && LocalDateTime.now().isBefore(egg.getHatchAt());
+                        if (inHatchCooldown) {
+                            dynamicStatus = "HATCHING";
+                        } else {
+                            dynamicStatus = "READY_TO_CLAIM";
+                        }
+                    }
 
-            if (!isDelivered) {
-                dynamicStatus = "WAITING_ORDER_COMPLETION";
-            } else {
-                boolean inHatchCooldown = egg.getHatchAt() != null && LocalDateTime.now().isBefore(egg.getHatchAt());
-                if (inHatchCooldown) {
-                    dynamicStatus = "HATCHING";
-                } else {
-                    dynamicStatus = "READY_TO_CLAIM";
+                    if (!dynamicStatus.equals(egg.getStatus())) {
+                        egg.setStatus(dynamicStatus);
+                        eggPort.saveEgg(egg);
+                    }
                 }
             }
 
-            if (!dynamicStatus.equals(egg.getStatus())) {
-                egg.setStatus(dynamicStatus);
-                eggPort.saveEgg(egg);
-            }
-
             // 3.6 Kiểm tra trạng thái trứng sau khi cập nhật động
-            if ("HATCHING".equals(egg.getStatus())) {
-                throw new BusinessRuleViolationException("Trứng đang ấp, chưa đến thời gian mở.");
+            List<Egg> readyEggs = eggsToClaim.stream()
+                    .filter(e -> "READY_TO_CLAIM".equals(e.getStatus()))
+                    .collect(Collectors.toList());
+
+            if (readyEggs.isEmpty()) {
+                boolean hasHatching = eggsToClaim.stream().anyMatch(e -> "HATCHING".equals(e.getStatus()));
+                if (hasHatching) {
+                    throw new BusinessRuleViolationException("Trứng đang ấp, chưa đến thời gian mở.");
+                }
+                throw new BusinessRuleViolationException("Không có trứng nào sẵn sàng để nhận.");
             }
-            if ("WAITING_ORDER_COMPLETION".equals(egg.getStatus())) {
-                throw new BusinessRuleViolationException("Đơn hàng chưa đạt trạng thái thành công tuyệt đối hoặc chưa đủ 15 ngày.");
+
+            // 3.8 Bốc Quà & Partial Success
+            List<ClaimedAccountDto> claimedAccounts = new ArrayList<>();
+            // Thu thập các tài khoản đã được claim trước đó của nhóm này (nếu có)
+            for (Egg egg : eggsToClaim) {
+                if ("CLAIMED".equals(egg.getStatus()) && egg.getAccount() != null) {
+                    claimedAccounts.add(ClaimedAccountDto.builder()
+                            .username(egg.getAccount().getUsername())
+                            .password(egg.getAccount().getPassword())
+                            .platform(egg.getAccount().getPlatform())
+                            .tier(egg.getGiftPool() != null ? egg.getGiftPool().getTier() : null)
+                            .build());
+                }
             }
-            if (!"READY_TO_CLAIM".equals(egg.getStatus())) {
-                throw new BusinessRuleViolationException("Trứng chưa sẵn sàng để nhận.");
+
+            int stuckCount = 0;
+            List<Egg> updatedEggs = new ArrayList<>();
+
+            for (Egg egg : readyEggs) {
+                String poolId = egg.getGiftPool().getId();
+                Optional<GiftAccount> accountOpt = accountPort.pickAvailableAccountForUpdateSkipLocked(poolId);
+
+                if (accountOpt.isPresent()) {
+                    GiftAccount assignedAccount = accountOpt.get();
+                    assignedAccount.setStatus("ASSIGNED");
+                    assignedAccount.setAssignedAt(LocalDateTime.now());
+                    accountPort.updateAccount(assignedAccount);
+
+                    egg.setStatus("CLAIMED");
+                    egg.setAccount(assignedAccount);
+                    updatedEggs.add(egg);
+
+                    // 3.11 Ghi Log hệ thống
+                    EggOpeningLog logEntry = EggOpeningLog.builder()
+                            .id(UUID.randomUUID().toString())
+                            .eggId(egg.getId())
+                            .accountId(assignedAccount.getId())
+                            .actionType("CLAIM_REWARD")
+                            .triggeredBy("USER_IP")
+                            .ipAddress(ipAddress)
+                            .createdAt(LocalDateTime.now())
+                            .build();
+                    logPort.saveLog(logEntry);
+
+                    claimedAccounts.add(ClaimedAccountDto.builder()
+                            .username(assignedAccount.getUsername())
+                            .password(assignedAccount.getPassword())
+                            .platform(assignedAccount.getPlatform())
+                            .tier(egg.getGiftPool() != null ? egg.getGiftPool().getTier() : null)
+                            .build());
+                } else {
+                    notificationPort.sendAlert(String.format(
+                            "🚨 <b>CẢNH BÁO SỰ CỐ: Hết quà tặng khả dụng</b>\n" +
+                            "• Trứng ID: <code>%s</code>\n" +
+                            "• Loại trứng: <code>Loại %d</code>\n" +
+                            "• Bể quà: <code>%s</code> (ID: <code>%s</code>)\n" +
+                            "• Lỗi: Không còn tài khoản khả dụng (AVAILABLE) để phát thưởng.",
+                            egg.getId(), egg.getEggType(),
+                            egg.getGiftPool() != null ? egg.getGiftPool().getPoolName() : "Không rõ", poolId
+                    ));
+                    stuckCount++;
+                }
             }
 
-            // 3.8 Bốc Quà (Sử dụng native query SKIP LOCKED để khóa và phân bổ cực nhanh, chống deadlock)
-            String poolId = egg.getGiftPool().getId();
-            GiftAccount assignedAccount = accountPort.pickAvailableAccountForUpdateSkipLocked(poolId)
-                    .orElseThrow(() -> {
-                        notificationPort.sendAlert(String.format(
-                                "🚨 <b>CẢNH BÁO SỰ CỐ: Hết quà tặng khả dụng</b>\n" +
-                                "• Trứng ID: <code>%s</code>\n" +
-                                "• Loại trứng: <code>Loại %d</code>\n" +
-                                "• Bể quà: <code>%s</code> (ID: <code>%s</code>)\n" +
-                                "• Lỗi: Không còn tài khoản khả dụng (AVAILABLE) để phát thưởng.",
-                                egg.getId(), egg.getEggType(),
-                                egg.getGiftPool() != null ? egg.getGiftPool().getPoolName() : "Không rõ", poolId
-                        ));
-                        return new BusinessRuleViolationException("Kho quà hiện tại đã hết, vui lòng quay lại sau.");
-                    });
-
-            // 3.9 Cập nhật trạng thái tài khoản quà tặng
-            assignedAccount.setStatus("ASSIGNED");
-            assignedAccount.setAssignedAt(LocalDateTime.now());
-            accountPort.updateAccount(assignedAccount);
-
-            // 3.10 Cập nhật thông tin trứng
-            egg.setStatus("CLAIMED");
-            egg.setAccount(assignedAccount);
-            eggPort.saveEgg(egg);
-
-            // 3.11 Ghi Log hệ thống
-            EggOpeningLog logEntry = EggOpeningLog.builder()
-                    .id(UUID.randomUUID().toString())
-                    .eggId(egg.getId())
-                    .accountId(assignedAccount.getId())
-                    .actionType("CLAIM_REWARD")
-                    .triggeredBy("USER_IP")
-                    .ipAddress(ipAddress)
-                    .createdAt(LocalDateTime.now())
-                    .build();
-            logPort.saveLog(logEntry);
+            if (!updatedEggs.isEmpty()) {
+                eggPort.saveAllEggs(updatedEggs);
+            }
 
             // 3.12 Xử lý điều kiện Ân xá (Reset Streak) cho khách hàng WARNING
             if (customer.getReturnStreak() == 1) {
                 processAmnesty(customer, syncedOrder);
             }
 
-            // TÍCH LŨY TÍN DỤNG DUYỆT SỚM (Chỉ khi mở thành công trứng loại 2)
-            if (egg.getEggType() == 2 && customer.getReturnCount() == 0 && !"BANNED".equals(customer.getStatus())) {
+            // TÍCH LŨY TÍN DỤNG DUYỆT SỚM (Chỉ khi mở thành công tất cả trứng của đơn và là trứng loại 2)
+            List<Egg> allOrderEggs = eggPort.loadEggsByOrderId(syncedOrder.getId());
+            boolean allClaimedInOrder = allOrderEggs.stream()
+                    .allMatch(e -> "CLAIMED".equalsIgnoreCase(e.getStatus()));
+
+            if (allClaimedInOrder && eggType == 2 && customer.getReturnCount() == 0 && !"BANNED".equals(customer.getStatus())) {
                 customer.setEarlyHatchCredits(2);
             }
             customerPort.saveCustomer(customer);
 
+            String msg = stuckCount > 0 
+                ? String.format("Mở trứng hoàn tất. Thành công: %d, Kẹt (thiếu tài khoản VIP): %d.", updatedEggs.size(), stuckCount)
+                : "Chúc mừng! Bạn đã mở trứng thành công.";
+
             return ClaimEggResponse.builder()
-                    .username(assignedAccount.getUsername())
-                    .password(assignedAccount.getPassword())
-                    .platform(assignedAccount.getPlatform())
-                    .tier(egg.getGiftPool() != null ? egg.getGiftPool().getTier() : null)
-                    .message("Chúc mừng! Bạn đã mở trứng thành công.")
+                    .accounts(claimedAccounts)
+                    .stuckCount(stuckCount)
+                    .message(msg)
                     .build();
         });
     }

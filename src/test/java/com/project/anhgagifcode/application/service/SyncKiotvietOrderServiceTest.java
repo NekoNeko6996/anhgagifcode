@@ -34,6 +34,8 @@ class SyncKiotvietOrderServiceTest {
     @Mock
     private NotificationPort notificationPort;
     @Mock
+    private KiotvietProductPersistencePort productPort;
+    @Mock
     private org.springframework.transaction.PlatformTransactionManager transactionManager;
 
     @InjectMocks
@@ -59,7 +61,7 @@ class SyncKiotvietOrderServiceTest {
                 .orderItems(List.of(
                         KiotvietOrderItem.builder()
                                 .id("item-1")
-                                .kvProductId("prod-1")
+                                .kvProductId("1")
                                 .quantity(1)
                                 .build()
                 ))
@@ -89,24 +91,36 @@ class SyncKiotvietOrderServiceTest {
                 .returnStreak(2)
                 .build();
 
+        KiotvietProduct mockProduct = KiotvietProduct.builder()
+                .kvProductId(1L)
+                .code("prod-1")
+                .name("Sản phẩm 1")
+                .build();
+
         GiftPool poolA = GiftPool.builder().id("pool-a").tier("A").build();
         GiftPool poolB = GiftPool.builder().id("pool-b").tier("B").build();
 
         mappingEgg1Lowest = ProductEggMapping.builder()
                 .id("mapping-1")
+                .productCode(mockProduct)
                 .giftPoolId(poolA)
+                .mappingsType(1)
                 .rate(100.0)
                 .build();
 
         mappingEgg1Highest = ProductEggMapping.builder()
                 .id("mapping-2")
+                .productCode(mockProduct)
                 .giftPoolId(poolB)
+                .mappingsType(1)
                 .rate(100.0)
                 .build();
 
         mappingEgg2Lowest = ProductEggMapping.builder()
                 .id("mapping-3")
+                .productCode(mockProduct)
                 .giftPoolId(poolA)
+                .mappingsType(2)
                 .rate(100.0)
                 .build();
 
@@ -115,6 +129,7 @@ class SyncKiotvietOrderServiceTest {
             String code = invocation.getArgument(0);
             return customerPort.loadByCustomerCode(code);
         });
+        lenient().when(productPort.findById(1L)).thenReturn(Optional.of(mockProduct));
     }
 
     @Test
@@ -160,7 +175,7 @@ class SyncKiotvietOrderServiceTest {
 
         syncService.syncAndGetOrderDetails("OD123");
 
-        verify(eggPort, never()).saveEgg(any(Egg.class));
+        verify(eggPort, never()).saveAllEggs(anyList());
     }
 
     @Test
@@ -181,17 +196,17 @@ class SyncKiotvietOrderServiceTest {
         when(customerPort.loadByCustomerCode("CUS99")).thenReturn(Optional.of(cleanCustomer));
         
         // Product mappings return Egg 1 & Egg 2
-        when(mappingPort.loadMappingsByProductIds(List.of("prod-1")))
+        when(mappingPort.loadMappingsByProductIds(List.of("1")))
                 .thenReturn(List.of(mappingEgg1Lowest, mappingEgg2Lowest));
 
         when(eggPort.loadEggsByOrderId("order-id")).thenReturn(Collections.emptyList());
 
-        // Stub eggPort.saveEgg to capture generated eggs
+        // Stub eggPort.saveAllEggs to capture generated eggs
         List<Egg> generatedEggs = new ArrayList<>();
         doAnswer(inv -> {
-            generatedEggs.add(inv.getArgument(0));
+            generatedEggs.addAll(inv.getArgument(0));
             return null;
-        }).when(eggPort).saveEgg(any(Egg.class));
+        }).when(eggPort).saveAllEggs(anyList());
 
         // Calling sync service
         syncService.syncAndGetOrderDetails("OD123");
@@ -213,16 +228,16 @@ class SyncKiotvietOrderServiceTest {
         when(orderPort.loadByOrderCode("OD123")).thenReturn(Optional.of(mockOrder));
         when(customerPort.loadByCustomerCode("CUS99")).thenReturn(Optional.of(warningCustomer));
 
-        when(mappingPort.loadMappingsByProductIds(List.of("prod-1")))
+        when(mappingPort.loadMappingsByProductIds(List.of("1")))
                 .thenReturn(List.of(mappingEgg1Lowest, mappingEgg2Lowest));
 
         when(eggPort.loadEggsByOrderId("order-id")).thenReturn(Collections.emptyList());
 
         List<Egg> generatedEggs = new ArrayList<>();
         doAnswer(inv -> {
-            generatedEggs.add(inv.getArgument(0));
+            generatedEggs.addAll(inv.getArgument(0));
             return null;
-        }).when(eggPort).saveEgg(any(Egg.class));
+        }).when(eggPort).saveAllEggs(anyList());
 
         syncService.syncAndGetOrderDetails("OD123");
 

@@ -59,6 +59,7 @@ class KiotvietProductServiceTest {
                 .eggTier("A")
                 .productCode(mockProduct)
                 .giftPoolId(mockPool)
+                .mappingsType(1)
                 .createdAt(LocalDateTime.now())
                 .build();
 
@@ -83,6 +84,7 @@ class KiotvietProductServiceTest {
         assertEquals("AG-2SUPER", result.get(0).getCode());
         assertEquals(1, result.get(0).getMappings().size());
         assertEquals("pool-1", result.get(0).getMappings().get(0).getGiftPool().getId());
+        assertEquals(1, result.get(0).getMappings().get(0).getMappingsType());
     }
 
     @Test
@@ -103,13 +105,14 @@ class KiotvietProductServiceTest {
         LinkProductToEggRequest request = LinkProductToEggRequest.builder()
                 .productId(100L)
                 .poolId("pool-1")
+                .mappingsType(1)
                 .build();
 
         when(mappingPersistencePort.findByKvProductId(100L)).thenReturn(Collections.emptyList());
 
         service.linkProductToEgg(request);
 
-        verify(mappingPersistencePort, times(1)).saveMapping(100L, "pool-1", 100.0);
+        verify(mappingPersistencePort, times(1)).saveMapping(100L, "pool-1", 100.0, 1);
     }
 
     @Test
@@ -118,11 +121,31 @@ class KiotvietProductServiceTest {
         LinkProductToEggRequest request = LinkProductToEggRequest.builder()
                 .productId(100L)
                 .poolId("pool-1")
+                .mappingsType(1)
                 .build();
 
         when(mappingPersistencePort.findByKvProductId(100L)).thenReturn(List.of(mockMapping));
 
         assertThrows(BusinessRuleViolationException.class, () -> service.linkProductToEgg(request));
+    }
+
+    @Test
+    void testLinkProductToEgg_DifferentMappingsType_Success() {
+        LinkProductToEggService service = new LinkProductToEggService(mappingPersistencePort);
+        LinkProductToEggRequest request = LinkProductToEggRequest.builder()
+                .productId(100L)
+                .poolId("pool-1")
+                .mappingsType(2)
+                .build();
+
+        // mockMapping is Type 1. We are linking as Type 2.
+        when(mappingPersistencePort.findByKvProductId(100L)).thenReturn(List.of(mockMapping));
+
+        service.linkProductToEgg(request);
+
+        verify(mappingPersistencePort, times(1)).saveMapping(100L, "pool-1", 100.0, 2);
+        // Old mapping is Type 1, so its rate should NOT be updated (since they are in different groups)
+        verify(mappingPersistencePort, never()).updateMappingRate(anyString(), anyDouble());
     }
 
     @Test

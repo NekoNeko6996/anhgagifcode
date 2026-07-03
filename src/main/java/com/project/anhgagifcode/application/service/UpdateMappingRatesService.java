@@ -34,8 +34,7 @@ public class UpdateMappingRatesService implements UpdateMappingRatesUseCase {
         Map<String, ProductEggMapping> currentMap = currentMappings.stream()
                 .collect(Collectors.toMap(ProductEggMapping::getId, m -> m));
 
-        // 2. Validate mapping IDs and calculate sum of rates
-        double sum = 0.0;
+        // 2. Validate mapping IDs and calculate sum of rates per group
         for (UpdateMappingRateRequest req : requests) {
             if (req.getRate() < 0) {
                 throw new BusinessRuleViolationException("Tỉ lệ không được âm.");
@@ -43,16 +42,25 @@ public class UpdateMappingRatesService implements UpdateMappingRatesUseCase {
             if (!currentMap.containsKey(req.getMappingId())) {
                 throw new BusinessRuleViolationException("Liên kết ID " + req.getMappingId() + " không thuộc sản phẩm này.");
             }
-            sum += req.getRate();
         }
 
         if (requests.size() != currentMappings.size()) {
             throw new BusinessRuleViolationException("Vui lòng cấu hình tỉ lệ cho toàn bộ liên kết của sản phẩm.");
         }
 
-        // Check if sum equals 100% (within tiny tolerance)
-        if (Math.abs(sum - 100.0) > 0.01) {
-            throw new BusinessRuleViolationException("Tổng tỉ lệ của các liên kết phải bằng 100% (Hiện tại: " + sum + "%).");
+        // Group requests by mappingsType
+        Map<Integer, List<UpdateMappingRateRequest>> groupedRequests = requests.stream()
+                .collect(Collectors.groupingBy(req -> currentMap.get(req.getMappingId()).getMappingsType()));
+
+        // Validate that each group's sum equals 100.0%
+        for (Map.Entry<Integer, List<UpdateMappingRateRequest>> entry : groupedRequests.entrySet()) {
+            int type = entry.getKey();
+            List<UpdateMappingRateRequest> groupReqs = entry.getValue();
+            double groupSum = groupReqs.stream().mapToDouble(UpdateMappingRateRequest::getRate).sum();
+            if (Math.abs(groupSum - 100.0) > 0.01) {
+                String typeName = (type == 2) ? "Trứng ấp (Loại 2)" : "Trứng thường (Loại 1)";
+                throw new BusinessRuleViolationException("Tổng tỉ lệ của nhóm " + typeName + " phải bằng 100% (Hiện tại: " + groupSum + "%).");
+            }
         }
 
         // 3. Save new rates

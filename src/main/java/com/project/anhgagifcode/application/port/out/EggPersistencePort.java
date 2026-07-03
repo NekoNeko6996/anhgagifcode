@@ -25,4 +25,10 @@ public interface EggPersistencePort {
     boolean existsByOrderIdAndPoolIdAndEggType(String orderId, String poolId, int eggType);
 
     List<Egg> findAll();
+
+    void saveAllEggs(List<Egg> eggs);
+
+    List<Egg> loadEggsForClaim(String orderId, int eggType);
+    
+    List<Egg> loadEggsForClaimReadOnly(String orderId, int eggType);
 }

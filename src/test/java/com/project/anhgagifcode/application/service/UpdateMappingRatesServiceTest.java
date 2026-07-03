@@ -40,12 +40,14 @@ class UpdateMappingRatesServiceTest {
                 .id("mapping-1")
                 .productCode(mockProduct)
                 .rate(50.0)
+                .mappingsType(1)
                 .build();
 
         mapping2 = ProductEggMapping.builder()
                 .id("mapping-2")
                 .productCode(mockProduct)
                 .rate(50.0)
+                .mappingsType(1)
                 .build();
     }
 

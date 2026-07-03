@@ -61,4 +61,28 @@ public class EggPersistenceAdapter implements EggPersistencePort {
                 .map(mapper::toDomain)
                 .collect(Collectors.toList());
     }
+
+    @Override
+    @Transactional
+    public void saveAllEggs(List<Egg> eggs) {
+        List<Eggs> entities = eggs.stream().map(mapper::toEntity).collect(Collectors.toList());
+        repository.saveAll(entities);
+    }
+
+    @Override
+    public List<Egg> loadEggsForClaim(String orderId, int eggType) {
+        return repository.findByOrderIdAndProductCodeAndEggTypeForUpdate(orderId, eggType)
+                .stream()
+                .map(mapper::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Egg> loadEggsForClaimReadOnly(String orderId, int eggType) {
+        return repository.findByOrderIdAndProductCodeAndEggType(orderId, eggType)
+                .stream()
+                .map(mapper::toDomain)
+                .collect(Collectors.toList());
+    }
 }

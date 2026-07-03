@@ -15,7 +15,7 @@ public interface ProductEggMappingPersistencePort {
 
     Optional<ProductEggMapping> findById(String id);
 
-    void saveMapping(Long kvProductId, String poolId, double rate);
+    void saveMapping(Long kvProductId, String poolId, double rate, int mappingsType);
 
     void updateMappingRate(String mappingId, double rate);
 

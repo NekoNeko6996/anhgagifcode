@@ -27,6 +27,7 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
     private final ProductEggMappingPersistencePort mappingPort;
     private final EggPersistencePort eggPort;
     private final NotificationPort notificationPort;
+    private final KiotvietProductPersistencePort productPort;
     private final TransactionTemplate transactionTemplate;
 
     public SyncKiotvietOrderService(
@@ -36,6 +37,7 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
             ProductEggMappingPersistencePort mappingPort,
             EggPersistencePort eggPort,
             NotificationPort notificationPort,
+            KiotvietProductPersistencePort productPort,
             PlatformTransactionManager transactionManager) {
         this.orderPort = orderPort;
         this.apiPort = apiPort;
@@ -43,6 +45,7 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
         this.mappingPort = mappingPort;
         this.eggPort = eggPort;
         this.notificationPort = notificationPort;
+        this.productPort = productPort;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -152,11 +155,17 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
         List<Egg> eggs = eggPort.loadEggsByOrderId(currentOrder.getId());
         List<EggDisplayDto> eggDtos = calculateDisplayStatus(eggs, customer);
 
+        int totalType1 = (int) eggs.stream().filter(e -> e.getEggType() == 1).count();
+        int totalType2 = (int) eggs.stream().filter(e -> e.getEggType() == 2).count();
+
         return SyncOrderResponse.builder()
                 .customerName(customer.getCustomerName() != null ? customer.getCustomerName() : "Khách hàng")
                 .customerStatus(customer.getStatus())
+                .orderId(currentOrder.getId())
                 .deliveryStatus(currentOrder.getDeliveryStatus())
                 .eggs(eggDtos)
+                .totalType1Eggs(totalType1)
+                .totalType2Eggs(totalType2)
                 .build();
     }
 
@@ -343,7 +352,12 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
             return;
         }
 
-        List<String> productIds = order.getOrderItems().stream()
+        List<KiotvietOrderItem> items = order.getOrderItems();
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+
+        List<String> productIds = items.stream()
                 .map(KiotvietOrderItem::getKvProductId).collect(Collectors.toList());
 
         List<ProductEggMapping> mappings = mappingPort.loadMappingsByProductIds(productIds);
@@ -361,8 +375,7 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
         Customer customer = customerPort.loadByCustomerCodeForUpdate(order.getCustomerCode())
                 .orElseThrow(() -> new ResourceNotFoundException("Lỗi dữ liệu khách hàng."));
 
-        boolean isSingleItem = order.getOrderItems() != null && order.getOrderItems().size() == 1
-                && order.getOrderItems().get(0).getQuantity() == 1;
+        boolean isSingleItem = items.size() == 1 && items.get(0).getQuantity() == 1;
         boolean useCredit = false;
 
         if (isSingleItem && customer.getEarlyHatchCredits() > 0) {
@@ -371,57 +384,92 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
             useCredit = true;
         }
 
-        // Draw pool for Egg 1 (Type 1)
-        ProductEggMapping mapping1 = drawMappingFromList(mappings);
-        if (mapping1 != null) {
-            LocalDateTime hatchAt = null;
-            if (customer.getReturnStreak() == 1) {
-                hatchAt = LocalDateTime.now().plusDays(15);
-                if (useCredit) {
-                    hatchAt = hatchAt.minusDays(3);
-                }
+        List<Egg> eggsToSave = new ArrayList<>();
+
+        for (KiotvietOrderItem item : items) {
+            String productCode = "UNKNOWN";
+            try {
+                long prodId = Long.parseLong(item.getKvProductId());
+                productCode = productPort.findById(prodId)
+                        .map(KiotvietProduct::getCode)
+                        .orElse("UNKNOWN");
+            } catch (NumberFormatException e) {
+                // ignore
             }
 
-            String initialStatus = "READY_TO_CLAIM";
-            if (hatchAt != null && LocalDateTime.now().isBefore(hatchAt)) {
-                initialStatus = "HATCHING";
-            } else {
-                boolean isClean = customer.getReturnStreak() == 0;
-                if (!isClean) {
-                    initialStatus = "WAITING_ORDER_COMPLETION";
+            final String finalProductCode = productCode;
+            List<ProductEggMapping> type1Mappings = mappings.stream()
+                    .filter(m -> m.getProductCode() != null 
+                            && String.valueOf(m.getProductCode().getKvProductId()).equals(item.getKvProductId())
+                            && m.getMappingsType() == 1)
+                    .collect(Collectors.toList());
+            List<ProductEggMapping> type2Mappings = mappings.stream()
+                    .filter(m -> m.getProductCode() != null 
+                            && String.valueOf(m.getProductCode().getKvProductId()).equals(item.getKvProductId())
+                            && m.getMappingsType() == 2)
+                    .collect(Collectors.toList());
+
+            int qty = item.getQuantity();
+            for (int i = 0; i < qty; i++) {
+                // Draw pool for Egg 1 (Type 1)
+                ProductEggMapping mapping1 = drawMappingFromList(type1Mappings);
+                if (mapping1 != null) {
+                    LocalDateTime hatchAt = null;
+                    if (customer.getReturnStreak() == 1) {
+                        hatchAt = LocalDateTime.now().plusDays(15);
+                        if (useCredit) {
+                            hatchAt = hatchAt.minusDays(3);
+                        }
+                    }
+
+                    String initialStatus = "READY_TO_CLAIM";
+                    if (hatchAt != null && LocalDateTime.now().isBefore(hatchAt)) {
+                        initialStatus = "HATCHING";
+                    } else {
+                        boolean isClean = customer.getReturnStreak() == 0;
+                        if (!isClean) {
+                            initialStatus = "WAITING_ORDER_COMPLETION";
+                        }
+                    }
+
+                    Egg egg1 = Egg.builder()
+                            .id(UUID.randomUUID().toString())
+                            .order(order)
+                            .giftPool(mapping1.getGiftPoolId())
+                            .eggType(1)
+                            .status(initialStatus)
+                            .createdAt(LocalDateTime.now())
+                            .hatchAt(hatchAt)
+                            .productCode(finalProductCode)
+                            .build();
+                    eggsToSave.add(egg1);
+                }
+
+                // Draw pool for Egg 2 (Type 2)
+                ProductEggMapping mapping2 = drawMappingFromList(type2Mappings);
+                if (mapping2 != null) {
+                    LocalDateTime hatchAt = LocalDateTime.now().plusDays(15);
+                    if (useCredit) {
+                        hatchAt = hatchAt.minusDays(3);
+                    }
+
+                    Egg egg2 = Egg.builder()
+                            .id(UUID.randomUUID().toString())
+                            .order(order)
+                            .giftPool(mapping2.getGiftPoolId())
+                            .eggType(2)
+                            .status("HATCHING")
+                            .createdAt(LocalDateTime.now())
+                            .hatchAt(hatchAt)
+                            .productCode(finalProductCode)
+                            .build();
+                    eggsToSave.add(egg2);
                 }
             }
-
-            Egg egg1 = Egg.builder()
-                    .id(UUID.randomUUID().toString())
-                    .order(order)
-                    .giftPool(mapping1.getGiftPoolId())
-                    .eggType(1)
-                    .status(initialStatus)
-                    .createdAt(LocalDateTime.now())
-                    .hatchAt(hatchAt)
-                    .build();
-            eggPort.saveEgg(egg1);
         }
 
-        // Draw pool for Egg 2 (Type 2)
-        ProductEggMapping mapping2 = drawMappingFromList(mappings);
-        if (mapping2 != null) {
-            LocalDateTime hatchAt = LocalDateTime.now().plusDays(15);
-            if (useCredit) {
-                hatchAt = hatchAt.minusDays(3);
-            }
-
-            Egg egg2 = Egg.builder()
-                    .id(UUID.randomUUID().toString())
-                    .order(order)
-                    .giftPool(mapping2.getGiftPoolId())
-                    .eggType(2)
-                    .status("HATCHING")
-                    .createdAt(LocalDateTime.now())
-                    .hatchAt(hatchAt)
-                    .build();
-            eggPort.saveEgg(egg2);
+        if (!eggsToSave.isEmpty()) {
+            eggPort.saveAllEggs(eggsToSave);
         }
     }
 
@@ -482,6 +530,7 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
                     .eggType(egg.getEggType())
                     .displayStatus(displayStatus)
                     .hatchAt(hatchAt)
+                    .productCode(egg.getProductCode())
                     .build());
         }
         return result;

@@ -69,6 +69,7 @@ class ClaimEggServiceTest {
                 .status("READY_TO_CLAIM")
                 .giftPool(GiftPool.builder().id("pool-uuid").tier("A").build())
                 .order(validOrder)
+                .productCode("prod-1") // Vẫn giữ ở model để test dữ liệu, nhưng không dùng để query nữa
                 .build();
 
         cleanCustomer = Customer.builder()
@@ -103,36 +104,45 @@ class ClaimEggServiceTest {
                 .status("AVAILABLE")
                 .build();
 
-        lenient().when(eggPort.findById("egg-uuid")).thenReturn(Optional.of(validEgg));
         lenient().when(syncOrderUseCase.syncOrderIfNeeded(any())).thenAnswer(inv -> inv.getArgument(0));
         lenient().when(transactionManager.getTransaction(any())).thenReturn(mock(TransactionStatus.class));
+        
+        // Cập nhật lại mock: Bỏ tham số productCode (anyString())
+        lenient().when(eggPort.loadEggsForClaimReadOnly(anyString(), anyInt()))
+                 .thenAnswer(invocation -> {
+                     String orderId = invocation.getArgument(0);
+                     int type = invocation.getArgument(1);
+                     return eggPort.loadEggsForClaim(orderId, type); 
+                 });
     }
 
     @Test
     void claimEggReward_Success_CleanCustomer_Egg1_Immediate() {
-        when(eggPort.loadEggForUpdate("egg-uuid")).thenReturn(Optional.of(validEgg));
+        when(eggPort.loadEggsForClaim("order-uuid", 1)).thenReturn(List.of(validEgg));
         when(customerPort.loadByCustomerCodeForUpdate("CUS88")).thenReturn(Optional.of(cleanCustomer));
         when(accountPort.pickAvailableAccountForUpdateSkipLocked("pool-uuid")).thenReturn(Optional.of(availableAccount));
+        when(eggPort.loadEggsByOrderId("order-uuid")).thenReturn(List.of(validEgg));
 
-        ClaimEggResponse response = claimService.claimEggReward("egg-uuid", "127.0.0.1");
+        ClaimEggResponse response = claimService.claimEggReward("order-uuid", 1, "127.0.0.1");
 
         assertNotNull(response);
-        assertEquals("gift_user", response.getUsername());
-        assertEquals("Steam", response.getPlatform());
-        assertEquals("A", response.getTier());
+        assertEquals(1, response.getAccounts().size());
+        assertEquals("gift_user", response.getAccounts().get(0).getUsername());
+        assertEquals("Steam", response.getAccounts().get(0).getPlatform());
+        assertEquals("A", response.getAccounts().get(0).getTier());
 
         verify(accountPort, times(1)).updateAccount(argThat(acc -> "ASSIGNED".equals(acc.getStatus())));
-        verify(eggPort, times(1)).saveEgg(argThat(egg -> "CLAIMED".equals(egg.getStatus())));
+        verify(eggPort, times(1)).saveAllEggs(anyList());
         verify(logPort, times(1)).saveLog(any(EggOpeningLog.class));
     }
 
     @Test
     void claimEggReward_BannedCustomer_ThrowsException() {
-        when(eggPort.loadEggForUpdate("egg-uuid")).thenReturn(Optional.of(validEgg));
+        when(eggPort.loadEggsForClaim("order-uuid", 1)).thenReturn(List.of(validEgg));
         when(customerPort.loadByCustomerCodeForUpdate("CUS88")).thenReturn(Optional.of(bannedCustomer));
 
         BusinessRuleViolationException exception = assertThrows(BusinessRuleViolationException.class, () -> {
-            claimService.claimEggReward("egg-uuid", "127.0.0.1");
+            claimService.claimEggReward("order-uuid", 1, "127.0.0.1");
         });
 
         assertEquals("Tài khoản bị khóa do vi phạm chính sách", exception.getMessage());
@@ -143,11 +153,11 @@ class ClaimEggServiceTest {
         validEgg.setEggType(2);
         validEgg.setStatus("HATCHING");
         validEgg.setHatchAt(LocalDateTime.now().plusDays(2)); // Hatch date in future
-        when(eggPort.loadEggForUpdate("egg-uuid")).thenReturn(Optional.of(validEgg));
+        when(eggPort.loadEggsForClaim("order-uuid", 2)).thenReturn(List.of(validEgg));
         when(customerPort.loadByCustomerCodeForUpdate("CUS88")).thenReturn(Optional.of(cleanCustomer));
 
         BusinessRuleViolationException exception = assertThrows(BusinessRuleViolationException.class, () -> {
-            claimService.claimEggReward("egg-uuid", "127.0.0.1");
+            claimService.claimEggReward("order-uuid", 2, "127.0.0.1");
         });
 
         assertTrue(exception.getMessage().contains("chưa đến thời gian"));
@@ -159,25 +169,27 @@ class ClaimEggServiceTest {
         validEgg.setStatus("WAITING_ORDER_COMPLETION");
         validEgg.setHatchAt(LocalDateTime.now().minusMinutes(5)); // Cooldown finished
         validOrder.setCreatedAt(LocalDateTime.now()); // Make it recent
-        when(eggPort.loadEggForUpdate("egg-uuid")).thenReturn(Optional.of(validEgg));
+        when(eggPort.loadEggsForClaim("order-uuid", 2)).thenReturn(List.of(validEgg));
         when(customerPort.loadByCustomerCodeForUpdate("CUS88")).thenReturn(Optional.of(cleanCustomer));
         when(accountPort.pickAvailableAccountForUpdateSkipLocked("pool-uuid")).thenReturn(Optional.of(availableAccount));
+        when(eggPort.loadEggsByOrderId("order-uuid")).thenReturn(List.of(validEgg));
 
-        ClaimEggResponse response = claimService.claimEggReward("egg-uuid", "127.0.0.1");
+        ClaimEggResponse response = claimService.claimEggReward("order-uuid", 2, "127.0.0.1");
 
         assertNotNull(response);
-        assertEquals("gift_user", response.getUsername());
-        assertEquals("Steam", response.getPlatform());
-        assertEquals("A", response.getTier());
+        assertEquals(1, response.getAccounts().size());
+        assertEquals("gift_user", response.getAccounts().get(0).getUsername());
+        assertEquals("Steam", response.getAccounts().get(0).getPlatform());
+        assertEquals("A", response.getAccounts().get(0).getTier());
     }
 
     @Test
     void claimEggReward_OrderNotDelivered_ThrowsException() {
         validOrder.setDeliveryStatus("Đang giao hàng");
-        when(eggPort.loadEggForUpdate("egg-uuid")).thenReturn(Optional.of(validEgg));
+        when(eggPort.loadEggsForClaim("order-uuid", 1)).thenReturn(List.of(validEgg));
 
         BusinessRuleViolationException exception = assertThrows(BusinessRuleViolationException.class, () -> {
-            claimService.claimEggReward("egg-uuid", "127.0.0.1");
+            claimService.claimEggReward("order-uuid", 1, "127.0.0.1");
         });
 
         assertEquals("Đơn hàng chưa được giao thành công.", exception.getMessage());
@@ -192,7 +204,7 @@ class ClaimEggServiceTest {
         validOrder.setDeliveryStatus("Đã giao hàng");
         validOrder.setUpdatedAt(LocalDateTime.now().minusDays(20)); // Absolute success
 
-        when(eggPort.loadEggForUpdate("egg-uuid")).thenReturn(Optional.of(validEgg));
+        when(eggPort.loadEggsForClaim("order-uuid", 1)).thenReturn(List.of(validEgg));
         when(customerPort.loadByCustomerCodeForUpdate("CUS88")).thenReturn(Optional.of(warningCustomer));
         when(accountPort.pickAvailableAccountForUpdateSkipLocked("pool-uuid")).thenReturn(Optional.of(availableAccount));
 
@@ -226,7 +238,7 @@ class ClaimEggServiceTest {
         when(eggPort.loadEggsByOrderId("order-2")).thenReturn(List.of(eggO2));
 
         // Stub customerPort.saveCustomer to verify amnesty reset
-        claimService.claimEggReward("egg-uuid", "127.0.0.1");
+        claimService.claimEggReward("order-uuid", 1, "127.0.0.1");
 
         // Verify return streak is reset to 0
         verify(customerPort, times(2)).saveCustomer(argThat(cus -> cus.getReturnStreak() == 0 && "TRUSTED_1".equals(cus.getStatus())));
@@ -236,14 +248,16 @@ class ClaimEggServiceTest {
     void claimEggReward_AlreadyClaimed_ReturnsAccount() {
         validEgg.setStatus("CLAIMED");
         validEgg.setAccount(availableAccount);
+        when(eggPort.loadEggsForClaim("order-uuid", 1)).thenReturn(List.of(validEgg));
 
-        ClaimEggResponse response = claimService.claimEggReward("egg-uuid", "127.0.0.1");
+        ClaimEggResponse response = claimService.claimEggReward("order-uuid", 1, "127.0.0.1");
 
         assertNotNull(response);
-        assertEquals("gift_user", response.getUsername());
-        assertEquals("Steam", response.getPlatform());
-        assertEquals("A", response.getTier());
-        assertTrue(response.getMessage().contains("thông tin tài khoản"));
+        assertEquals(1, response.getAccounts().size());
+        assertEquals("gift_user", response.getAccounts().get(0).getUsername());
+        assertEquals("Steam", response.getAccounts().get(0).getPlatform());
+        assertEquals("A", response.getAccounts().get(0).getTier());
+        assertTrue(response.getMessage().contains("danh sách thông tin"));
     }
 
     @Test
@@ -251,11 +265,12 @@ class ClaimEggServiceTest {
         validEgg.setEggType(2);
         validEgg.setStatus("READY_TO_CLAIM");
         validEgg.setHatchAt(LocalDateTime.now().minusMinutes(5));
-        when(eggPort.loadEggForUpdate("egg-uuid")).thenReturn(Optional.of(validEgg));
+        when(eggPort.loadEggsForClaim("order-uuid", 2)).thenReturn(List.of(validEgg));
         when(customerPort.loadByCustomerCodeForUpdate("CUS88")).thenReturn(Optional.of(cleanCustomer));
         when(accountPort.pickAvailableAccountForUpdateSkipLocked("pool-uuid")).thenReturn(Optional.of(availableAccount));
+        when(eggPort.loadEggsByOrderId("order-uuid")).thenReturn(List.of(validEgg));
 
-        claimService.claimEggReward("egg-uuid", "127.0.0.1");
+        claimService.claimEggReward("order-uuid", 2, "127.0.0.1");
 
         assertEquals(2, cleanCustomer.getEarlyHatchCredits());
     }
@@ -266,11 +281,12 @@ class ClaimEggServiceTest {
         validEgg.setStatus("READY_TO_CLAIM");
         validEgg.setHatchAt(null);
         cleanCustomer.setEarlyHatchCredits(0);
-        when(eggPort.loadEggForUpdate("egg-uuid")).thenReturn(Optional.of(validEgg));
+        when(eggPort.loadEggsForClaim("order-uuid", 1)).thenReturn(List.of(validEgg));
         when(customerPort.loadByCustomerCodeForUpdate("CUS88")).thenReturn(Optional.of(cleanCustomer));
         when(accountPort.pickAvailableAccountForUpdateSkipLocked("pool-uuid")).thenReturn(Optional.of(availableAccount));
+        when(eggPort.loadEggsByOrderId("order-uuid")).thenReturn(List.of(validEgg));
 
-        claimService.claimEggReward("egg-uuid", "127.0.0.1");
+        claimService.claimEggReward("order-uuid", 1, "127.0.0.1");
 
         assertEquals(0, cleanCustomer.getEarlyHatchCredits());
     }

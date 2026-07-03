@@ -23,8 +23,9 @@ public class UseCaseConfig {
             CustomerPersistencePort customerPort,
             ProductEggMappingPersistencePort mappingPort,
             EggPersistencePort eggPort,
-            NotificationPort notificationPort) {
-        return new SyncKiotvietOrderService(orderPort, apiPort, customerPort, mappingPort, eggPort, notificationPort, transactionManager);
+            NotificationPort notificationPort,
+            KiotvietProductPersistencePort productPort) {
+        return new SyncKiotvietOrderService(orderPort, apiPort, customerPort, mappingPort, eggPort, notificationPort, productPort, transactionManager);
     }
 
     @Bean

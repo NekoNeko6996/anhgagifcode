@@ -35,4 +35,13 @@ public interface EggJpaRepository extends JpaRepository<Eggs, String> {
     @Modifying
     @Query("UPDATE Eggs e SET e.accountId = null WHERE e.accountId.id IN :accountIds")
     void nullifyAccountIdIn(@Param("accountIds") List<String> accountIds);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT e FROM Eggs e LEFT JOIN FETCH e.orderId LEFT JOIN FETCH e.giftPoolId LEFT JOIN FETCH e.accountId WHERE e.orderId.id = :orderId AND e.eggType = :eggType")
+    List<Eggs> findByOrderIdAndProductCodeAndEggTypeForUpdate(
+            @Param("orderId") String orderId,
+            @Param("eggType") int eggType);
+    
+    @Query("SELECT e FROM Eggs e WHERE e.orderId.id = :orderId AND e.eggType = :eggType")
+    List<Eggs> findByOrderIdAndProductCodeAndEggType(String orderId, int eggType);
 }

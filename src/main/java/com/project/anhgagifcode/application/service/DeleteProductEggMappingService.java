@@ -52,10 +52,16 @@ public class DeleteProductEggMappingService implements DeleteProductEggMappingUs
 
     private void recalculateRates(Long productId) {
         List<ProductEggMapping> remaining = mappingPersistencePort.findByKvProductId(productId);
-        if (!remaining.isEmpty()) {
-            double equalRate = 100.0 / remaining.size();
-            for (ProductEggMapping r : remaining) {
-                mappingPersistencePort.updateMappingRate(r.getId(), equalRate);
+        java.util.Map<Integer, List<ProductEggMapping>> grouped = remaining.stream()
+                .collect(java.util.stream.Collectors.groupingBy(ProductEggMapping::getMappingsType));
+
+        for (java.util.Map.Entry<Integer, List<ProductEggMapping>> entry : grouped.entrySet()) {
+            List<ProductEggMapping> groupList = entry.getValue();
+            if (!groupList.isEmpty()) {
+                double equalRate = 100.0 / groupList.size();
+                for (ProductEggMapping r : groupList) {
+                    mappingPersistencePort.updateMappingRate(r.getId(), equalRate);
+                }
             }
         }
     }

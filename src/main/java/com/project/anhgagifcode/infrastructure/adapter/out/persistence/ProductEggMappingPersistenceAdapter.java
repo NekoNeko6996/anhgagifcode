@@ -82,7 +82,7 @@ public class ProductEggMappingPersistenceAdapter implements ProductEggMappingPer
 
     @Override
     @Transactional
-    public void saveMapping(Long kvProductId, String poolId, double rate) {
+    public void saveMapping(Long kvProductId, String poolId, double rate, int mappingsType) {
         KiotvietProducts product = productRepository.findById(kvProductId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm Kiotviet này."));
         GiftPools pool = poolRepository.findById(poolId)
@@ -94,6 +94,7 @@ public class ProductEggMappingPersistenceAdapter implements ProductEggMappingPer
         entity.setGiftPoolId(pool);
         entity.setEggTier(pool.getTier());
         entity.setRate(rate);
+        entity.setMappingsType(mappingsType);
         entity.setCreatedAt(new java.util.Date());
         entity.setUpdatedAt(new java.util.Date());
 

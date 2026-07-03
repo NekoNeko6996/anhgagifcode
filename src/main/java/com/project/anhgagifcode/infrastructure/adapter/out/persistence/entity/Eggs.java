@@ -80,8 +80,19 @@ public class Eggs implements Serializable {
     @JoinColumn(name = "gift_pool_id", referencedColumnName = "id")
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     private GiftPools giftPoolId;
+    @Size(max = 100)
+    @Column(name = "product_code")
+    private String productCode;
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "eggId")
     private Collection<EggOpeningLogs> eggOpeningLogsCollection;
+
+    public String getProductCode() {
+        return productCode;
+    }
+
+    public void setProductCode(String productCode) {
+        this.productCode = productCode;
+    }
 
     public Eggs() {
     }

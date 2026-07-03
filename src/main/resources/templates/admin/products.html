@@ -40,13 +40,14 @@
                                 <th>SKU</th>
                                 <th>Tên Sản Phẩm</th>
                                 <th>Giá Gốc (VND)</th>
-                                <th>Cấu Hình Ánh Xạ Trứng (Game Rules)</th>
+                                <th>Trứng Thường (Loại 1)</th>
+                                <th>Trứng Ấp (Loại 2)</th>
                                 <th>Hành Động</th>
                             </tr>
                         </thead>
                         <tbody id="productsTableBody">
                             <tr>
-                                <td colspan="7" style="text-align: center; color: var(--text-secondary);">Đang tải dữ liệu...</td>
+                                <td colspan="8" style="text-align: center; color: var(--text-secondary);">Đang tải dữ liệu...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -75,6 +76,14 @@
                         <label class="form-label" for="mappingPoolId">Bể quà tặng liên kết</label>
                         <select id="mappingPoolId" class="form-select" required>
                             <option value="">-- Đang tải bể quà --</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="mappingType">Nhóm trứng áp dụng</label>
+                        <select id="mappingType" class="form-select" required>
+                            <option value="1">Trứng thường (Egg Type 1 - Nhận ngay)</option>
+                            <option value="2">Trứng ấp (Egg Type 2 - Đếm ngược 15 ngày)</option>
                         </select>
                     </div>
 
@@ -107,9 +116,7 @@
                         <!-- Mappings rates inputs will be populated here -->
                     </div>
 
-                    <div style="margin-bottom: 15px; font-size: 14px; font-weight: 600; text-align: right;">
-                        Tổng tỉ lệ: <span id="totalRateLabel">0.0%</span>
-                    </div>
+
 
                     <div class="modal-footer" style="padding-bottom: 0; padding-right: 0;">
                         <button type="button" class="btn btn-secondary" onclick="closeRatesModal()">Hủy</button>
@@ -174,7 +181,7 @@
             tbody.innerHTML = '';
 
             if (products.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-secondary);">Không có sản phẩm nào. Nhấp "Đồng bộ" để lấy dữ liệu.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-secondary);">Không có sản phẩm nào. Nhấp "Đồng bộ" để lấy dữ liệu.</td></tr>`;
                 return;
             }
 
@@ -184,27 +191,40 @@
                 // Image
                 const imgTag = prod.imageUrl 
                     ? `<img src="${prod.imageUrl}" alt="${prod.name}" style="width: 50px; height: 50px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border-color);">`
-                    : `<div style="width: 50px; height: 50px; border-radius: 6px; background-color: rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; color:var(--text-secondary); border: 1px solid var(--border-color);"><i class="fa-solid fa-image"></i></div>`;
+                    : `<div style="width: 50px; height: 50px; border-radius: 6px; background-color: rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; color:var(--text-secondary);"><i class="fa-solid fa-image"></i></div>`;
 
                 const formattedPrice = new Intl.NumberFormat('vi-VN').format(prod.basePrice || 0);
 
-                // Mappings layout
-                let mappingsLayout = '';
+                // Mappings layouts
+                let mappingsLayoutType1 = '';
+                let mappingsLayoutType2 = '';
+
                 if (prod.mappings && prod.mappings.length > 0) {
                     prod.mappings.forEach(m => {
                         const poolName = m.giftPool ? m.giftPool.poolName : 'Bể quà không rõ';
                         const tier = m.giftPool ? m.giftPool.tier : '-';
                         const rateText = typeof m.rate === 'number' ? `${m.rate.toFixed(1)}%` : '100%';
 
-                        mappingsLayout += `
-                            <div class="mapping-tag" style="margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                        const itemHtml = `
+                            <div class="mapping-tag" style="margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 1px solid var(--border-color); padding: 4px 8px; border-radius: 6px; background: rgba(255,255,255,0.02);">
                                 <span><strong>${poolName} (Tier ${tier})</strong> <span class="badge badge-info" style="font-size:10px; padding: 2px 6px;">${rateText}</span></span>
-                                <span class="mapping-tag-delete" title="Xóa cấu hình này" onclick="deleteMapping('${m.id}')" style="cursor:pointer; font-weight:bold; margin-left: 4px;">&times;</span>
+                                <span class="mapping-tag-delete" title="Xóa" onclick="deleteMapping('${m.id}')" style="cursor:pointer; font-weight:bold; color: var(--text-secondary);">&times;</span>
                             </div>
                         `;
+
+                        if (m.mappingsType === 2) {
+                            mappingsLayoutType2 += itemHtml;
+                        } else {
+                            mappingsLayoutType1 += itemHtml;
+                        }
                     });
-                } else {
-                    mappingsLayout = `<span style="font-size:12px; color:var(--text-secondary);">Chưa thiết lập (Không phát sinh trứng khi mua SP này)</span>`;
+                }
+
+                if (!mappingsLayoutType1) {
+                    mappingsLayoutType1 = `<span style="font-size:12px; color:var(--text-secondary);">Chưa thiết lập</span>`;
+                }
+                if (!mappingsLayoutType2) {
+                    mappingsLayoutType2 = `<span style="font-size:12px; color:var(--text-secondary);">Chưa thiết lập</span>`;
                 }
 
                 tr.innerHTML = `
@@ -213,7 +233,8 @@
                     <td style="font-family:monospace; font-size:13px; color:var(--text-secondary);">${prod.code || '-'}</td>
                     <td style="font-weight:600; color:var(--text-primary); max-width: 250px;">${prod.name || '-'}</td>
                     <td>${formattedPrice}</td>
-                    <td><div style="display:flex; flex-wrap:wrap; gap: 6px;">${mappingsLayout}</div></td>
+                    <td><div style="display:flex; flex-direction:column; gap: 4px;">${mappingsLayoutType1}</div></td>
+                    <td><div style="display:flex; flex-direction:column; gap: 4px;">${mappingsLayoutType2}</div></td>
                     <td>
                         <div style="display:flex; gap:6px; flex-wrap: wrap;">
                             <button class="btn btn-secondary" style="padding: 6px 12px; font-size:12px;" onclick="openMappingModal(${prod.kvProductId}, '${prod.name.replace(/'/g, "\\'")}')">
@@ -225,7 +246,6 @@
                                 </button>
                             ` : ''}
                         </div>
-                    </td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -287,6 +307,7 @@
             e.preventDefault();
             const productId = parseInt(document.getElementById('mappingProductId').value);
             const poolId = document.getElementById('mappingPoolId').value;
+            const mappingsType = parseInt(document.getElementById('mappingType').value);
 
             if (!poolId) {
                 showAlert('Vui lòng chọn bể quà!', 'warning');
@@ -296,7 +317,7 @@
             try {
                 const response = await fetchWithAuth('/api/admin/product-egg-mappings', {
                     method: 'POST',
-                    body: JSON.stringify({ productId, poolId })
+                    body: JSON.stringify({ productId, poolId, mappingsType })
                 });
 
                 if (response && response.ok) {
@@ -343,40 +364,92 @@
             container.innerHTML = '';
 
             if (product && product.mappings) {
-                product.mappings.forEach(m => {
-                    const poolName = m.giftPool ? m.giftPool.poolName : 'Bể quà không rõ';
-                    const tier = m.giftPool ? m.giftPool.tier : '-';
-                    
-                    const div = document.createElement('div');
-                    div.className = 'form-group';
-                    div.style.marginBottom = '12px';
-                    div.innerHTML = `
-                        <label class="form-label">${poolName} (Tier ${tier})</label>
-                        <div style="display:flex; align-items:center; gap: 8px;">
-                            <input class="form-input rate-input" type="number" step="0.1" min="0" max="100" data-mapping-id="${m.id}" value="${m.rate || 0}" oninput="calculateTotalRates()" required>
-                            <span style="font-weight:600; color: var(--text-primary);">%</span>
-                        </div>
-                    `;
-                    container.appendChild(div);
-                });
+                const group1 = product.mappings.filter(m => m.mappingsType !== 2);
+                const group2 = product.mappings.filter(m => m.mappingsType === 2);
+
+                if (group1.length > 0) {
+                    const h4 = document.createElement('h4');
+                    h4.textContent = 'Nhóm Trứng Thường (Loại 1)';
+                    h4.style.margin = '10px 0 6px 0';
+                    h4.style.color = '#4caf50';
+                    container.appendChild(h4);
+
+                    group1.forEach(m => {
+                        createRateInputRow(m, container, 1);
+                    });
+
+                    const totalDiv = document.createElement('div');
+                    totalDiv.style.textAlign = 'right';
+                    totalDiv.style.marginBottom = '12px';
+                    totalDiv.style.fontWeight = 'bold';
+                    totalDiv.innerHTML = `Tổng nhóm 1: <span id="totalGroup1RateLabel">0.0%</span>`;
+                    container.appendChild(totalDiv);
+                }
+
+                if (group2.length > 0) {
+                    const h4 = document.createElement('h4');
+                    h4.textContent = 'Nhóm Trứng Ấp (Loại 2)';
+                    h4.style.margin = '16px 0 6px 0';
+                    h4.style.color = '#ff9800';
+                    container.appendChild(h4);
+
+                    group2.forEach(m => {
+                        createRateInputRow(m, container, 2);
+                    });
+
+                    const totalDiv = document.createElement('div');
+                    totalDiv.style.textAlign = 'right';
+                    totalDiv.style.marginBottom = '12px';
+                    totalDiv.style.fontWeight = 'bold';
+                    totalDiv.innerHTML = `Tổng nhóm 2: <span id="totalGroup2RateLabel">0.0%</span>`;
+                    container.appendChild(totalDiv);
+                }
             }
             
             calculateTotalRates();
             document.getElementById('ratesModal').classList.add('active');
         }
 
+        function createRateInputRow(m, container, groupType) {
+            const poolName = m.giftPool ? m.giftPool.poolName : 'Bể quà không rõ';
+            const tier = m.giftPool ? m.giftPool.tier : '-';
+            
+            const div = document.createElement('div');
+            div.className = 'form-group';
+            div.style.marginBottom = '8px';
+            div.innerHTML = `
+                <label class="form-label" style="font-size: 13px;">${poolName} (Tier ${tier})</label>
+                <div style="display:flex; align-items:center; gap: 8px;">
+                    <input class="form-input rate-input" type="number" step="0.1" min="0" max="100" data-mapping-id="${m.id}" data-group-type="${groupType}" value="${m.rate || 0}" oninput="calculateTotalRates()" required>
+                    <span style="font-weight:600; color: var(--text-primary);">%</span>
+                </div>
+            `;
+            container.appendChild(div);
+        }
+
         function calculateTotalRates() {
-            const inputs = document.querySelectorAll('.rate-input');
-            let sum = 0.0;
-            inputs.forEach(input => {
-                sum += parseFloat(input.value) || 0.0;
+            // Group 1
+            const inputs1 = document.querySelectorAll('.rate-input[data-group-type="1"]');
+            let sum1 = 0.0;
+            inputs1.forEach(input => {
+                sum1 += parseFloat(input.value) || 0.0;
             });
-            const totalLabel = document.getElementById('totalRateLabel');
-            totalLabel.textContent = `${sum.toFixed(1)}%`;
-            if (Math.abs(sum - 100.0) < 0.05) {
-                totalLabel.style.color = '#10B981'; // Green
-            } else {
-                totalLabel.style.color = '#EF4444'; // Red
+            const label1 = document.getElementById('totalGroup1RateLabel');
+            if (label1) {
+                label1.textContent = `${sum1.toFixed(1)}%`;
+                label1.style.color = Math.abs(sum1 - 100.0) < 0.05 ? '#10B981' : '#EF4444';
+            }
+
+            // Group 2
+            const inputs2 = document.querySelectorAll('.rate-input[data-group-type="2"]');
+            let sum2 = 0.0;
+            inputs2.forEach(input => {
+                sum2 += parseFloat(input.value) || 0.0;
+            });
+            const label2 = document.getElementById('totalGroup2RateLabel');
+            if (label2) {
+                label2.textContent = `${sum2.toFixed(1)}%`;
+                label2.style.color = Math.abs(sum2 - 100.0) < 0.05 ? '#10B981' : '#EF4444';
             }
         }
 
@@ -390,16 +463,22 @@
             const inputs = document.querySelectorAll('.rate-input');
             
             const requests = [];
-            let sum = 0.0;
+            const sums = { "1": 0.0, "2": 0.0 };
             inputs.forEach(input => {
                 const mappingId = input.getAttribute('data-mapping-id');
+                const groupType = input.getAttribute('data-group-type');
                 const rate = parseFloat(input.value) || 0.0;
-                sum += rate;
+                sums[groupType] += rate;
                 requests.push({ mappingId, rate });
             });
 
-            if (Math.abs(sum - 100.0) > 0.05) {
-                showAlert(`Tổng tỉ lệ phải bằng 100% (Hiện tại: ${sum.toFixed(1)}%)`, 'warning');
+            // Validate sums
+            if (sums["1"] > 0 && Math.abs(sums["1"] - 100.0) > 0.05) {
+                showAlert(`Tổng tỉ lệ nhóm Trứng thường phải bằng 100% (Hiện tại: ${sums["1"].toFixed(1)}%)`, 'warning');
+                return;
+            }
+            if (sums["2"] > 0 && Math.abs(sums["2"] - 100.0) > 0.05) {
+                showAlert(`Tổng tỉ lệ nhóm Trứng ấp phải bằng 100% (Hiện tại: ${sums["2"].toFixed(1)}%)`, 'warning');
                 return;
             }
 
