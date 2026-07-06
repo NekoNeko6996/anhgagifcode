@@ -27,6 +27,7 @@ public class UpdateCustomerStatusService implements UpdateCustomerStatusUseCase 
         if (request.getSuccessCount() != null) {
             customer.setSuccessCount(request.getSuccessCount());
         }
+        customer.setUnbanAt(request.getUnbanAt());
 
         Customer savedCustomer = customerPort.saveCustomer(customer);
 
@@ -40,6 +41,7 @@ public class UpdateCustomerStatusService implements UpdateCustomerStatusUseCase 
                 .warningCount(savedCustomer.getWarningCount())
                 .earlyHatchCredits(savedCustomer.getEarlyHatchCredits())
                 .returnCount(savedCustomer.getReturnCount())
+                .unbanAt(savedCustomer.getUnbanAt())
                 .createdAt(savedCustomer.getCreatedAt())
                 .build();
     }

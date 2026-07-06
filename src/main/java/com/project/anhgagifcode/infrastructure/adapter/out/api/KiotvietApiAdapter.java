@@ -26,7 +26,7 @@ import org.springframework.web.client.RestClientException;
 @RequiredArgsConstructor
 public class KiotvietApiAdapter implements KiotvietApiPort {
 
-    @Value("${kiotviet.api.url:https://public.kiotapi.com}")
+    @Value("${kiotviet.api.url}")
     private String apiUrl;
 
     @Value("${kiotviet.api.retailer}")
@@ -65,6 +65,7 @@ public class KiotvietApiAdapter implements KiotvietApiPort {
 
             // 1. SỬA ĐƯỜNG DẪN API (Dùng endpoint lấy chi tiết hóa đơn theo Code)
             String url = apiUrl + "/invoices/code/" + orderCode;
+            log.info(apiUrl);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setBearerAuth(token);

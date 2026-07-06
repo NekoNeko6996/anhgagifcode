@@ -41,6 +41,9 @@ public class CustomerDto {
     @Schema(description = "Tổng số lượng đơn hoàn")
     private int returnCount;
 
+    @Schema(description = "Thời gian được gỡ BAN")
+    private LocalDateTime unbanAt;
+
     @Schema(description = "Thời gian tạo tài khoản")
     private LocalDateTime createdAt;
     

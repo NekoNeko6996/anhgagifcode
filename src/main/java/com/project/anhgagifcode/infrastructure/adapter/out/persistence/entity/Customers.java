@@ -88,9 +88,13 @@ public class Customers implements Serializable {
     @Column(name = "created_at")
     @Temporal(TemporalType.TIMESTAMP)
     private Date createdAt;
+    @Column(name = "unban_at")
+    private java.time.LocalDateTime unbanAt;
+
     @Column(name = "updated_at")
     @Temporal(TemporalType.TIMESTAMP)
     private Date updatedAt;
+
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "customerCode")
     private Collection<KiotvietOrders> kiotvietOrdersCollection;
 
@@ -181,6 +185,14 @@ public class Customers implements Serializable {
 
     public void setUpdatedAt(Date updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public java.time.LocalDateTime getUnbanAt() {
+        return unbanAt;
+    }
+
+    public void setUnbanAt(java.time.LocalDateTime unbanAt) {
+        this.unbanAt = unbanAt;
     }
 
     @XmlTransient

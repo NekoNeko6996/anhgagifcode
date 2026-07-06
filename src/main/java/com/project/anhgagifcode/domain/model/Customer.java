@@ -18,6 +18,7 @@ public class Customer {
     private int warningCount;
     private int earlyHatchCredits;
     private int returnCount;
+    private LocalDateTime unbanAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

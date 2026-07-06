@@ -28,6 +28,7 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
     private final EggPersistencePort eggPort;
     private final NotificationPort notificationPort;
     private final KiotvietProductPersistencePort productPort;
+    private final SystemConfigPersistencePort configPort;
     private final TransactionTemplate transactionTemplate;
 
     public SyncKiotvietOrderService(
@@ -38,6 +39,7 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
             EggPersistencePort eggPort,
             NotificationPort notificationPort,
             KiotvietProductPersistencePort productPort,
+            SystemConfigPersistencePort configPort,
             PlatformTransactionManager transactionManager) {
         this.orderPort = orderPort;
         this.apiPort = apiPort;
@@ -46,6 +48,7 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
         this.eggPort = eggPort;
         this.notificationPort = notificationPort;
         this.productPort = productPort;
+        this.configPort = configPort;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -108,22 +111,50 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
                 throw new BusinessRuleViolationException("Thiếu thông tin khách hàng");
             }
 
+            // Load/register customer
+            Customer cus = customerPort.loadByCustomerCode(apiOrder.getCustomerCode().trim()).orElseGet(() -> {
+                Customer newCus = new Customer();
+                newCus.setId(UUID.randomUUID().toString());
+                newCus.setCustomerCode(apiOrder.getCustomerCode().trim());
+                newCus.setStatus("NORMAL");
+                newCus.setSuccessCount(0);
+                newCus.setReturnStreak(0);
+                newCus.setWarningCount(0);
+                newCus.setEarlyHatchCredits(0);
+                newCus.setReturnCount(0);
+                newCus.setCreatedAt(LocalDateTime.now());
+                return customerPort.saveCustomer(newCus);
+            });
+
+            // Khóa tài khoản bị BANNED hoặc TEMP_BANNED
+            if ("BANNED".equalsIgnoreCase(cus.getStatus())) {
+                throw new BusinessRuleViolationException("Tài khoản bị khóa do vi phạm chính sách");
+            }
+            if ("TEMP_BANNED".equalsIgnoreCase(cus.getStatus()) && cus.getUnbanAt() != null && LocalDateTime.now().isBefore(cus.getUnbanAt())) {
+                throw new BusinessRuleViolationException("Tài khoản của bạn đang bị khóa tạm thời đến ngày " + cus.getUnbanAt() + ".");
+            }
+
             final KiotvietOrder finalApiOrder = apiOrder;
+            final Customer finalCustomer = cus;
+
             // 2. Chạy ghi database trong transaction
             SyncDataHolder holder = transactionTemplate.execute(status -> {
-                Customer cus = processCustomerLogic(finalApiOrder.getCustomerCode(), finalApiOrder.getDeliveryStatus(), Optional.empty());
                 finalApiOrder.setId(UUID.randomUUID().toString());
                 finalApiOrder.setLastSyncedAt(LocalDateTime.now());
                 finalApiOrder.setUpdatedAt(LocalDateTime.now());
                 KiotvietOrder ord = orderPort.saveOrder(finalApiOrder);
 
-                // Khóa tài khoản bị BANNED
-                if ("BANNED".equals(cus.getStatus())) {
-                    throw new BusinessRuleViolationException("Tài khoản bị khóa do vi phạm chính sách");
+                String deliveryStatus = ord.getDeliveryStatus();
+                boolean isReturnedOrCancelled = "Đang chuyển hoàn".equalsIgnoreCase(deliveryStatus) || "Đã chuyển hoàn".equalsIgnoreCase(deliveryStatus)
+                        || "Hủy".equalsIgnoreCase(deliveryStatus) || "Đã hủy".equalsIgnoreCase(deliveryStatus) || "Bị hủy".equalsIgnoreCase(deliveryStatus);
+
+                if (isReturnedOrCancelled) {
+                    applyPenalty(finalCustomer, ord);
+                    throw new BusinessRuleViolationException("Đơn hàng đã bị hoàn trả hoặc hủy.");
                 }
 
                 generateEggsIfNeeded(ord);
-                return new SyncDataHolder(ord, cus);
+                return new SyncDataHolder(ord, finalCustomer);
             });
             currentOrder = holder.order;
             customer = holder.customer;
@@ -132,16 +163,35 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
             if (currentOrder.getCustomerCode() == null || currentOrder.getCustomerCode().trim().isEmpty() || "KHACH_LE".equalsIgnoreCase(currentOrder.getCustomerCode().trim())) {
                 throw new BusinessRuleViolationException("Thiếu thông tin khách hàng");
             }
-            // 1. Đồng bộ lại qua API ngoài transaction nếu cache hết hạn
-            currentOrder = syncOrderIfNeeded(currentOrder);
-            
-            // 2. Load trạng thái khách hàng hiện tại
-            customer = customerPort.loadByCustomerCode(currentOrder.getCustomerCode())
+
+            customer = customerPort.loadByCustomerCode(currentOrder.getCustomerCode().trim())
                     .orElseThrow(() -> new ResourceNotFoundException("Lỗi dữ liệu khách hàng."));
 
-            // Khóa tài khoản bị BANNED
-            if ("BANNED".equals(customer.getStatus())) {
+            if ("BANNED".equalsIgnoreCase(customer.getStatus())) {
                 throw new BusinessRuleViolationException("Tài khoản bị khóa do vi phạm chính sách");
+            }
+            if ("TEMP_BANNED".equalsIgnoreCase(customer.getStatus()) && customer.getUnbanAt() != null && LocalDateTime.now().isBefore(customer.getUnbanAt())) {
+                throw new BusinessRuleViolationException("Tài khoản của bạn đang bị khóa tạm thời đến ngày " + customer.getUnbanAt() + ".");
+            }
+
+            // 1. Đồng bộ lại qua API ngoài transaction nếu cache hết hạn
+            currentOrder = syncOrderIfNeeded(currentOrder);
+
+            String deliveryStatus = currentOrder.getDeliveryStatus();
+            boolean isReturnedOrCancelled = "Đang chuyển hoàn".equalsIgnoreCase(deliveryStatus) || "Đã chuyển hoàn".equalsIgnoreCase(deliveryStatus)
+                    || "Hủy".equalsIgnoreCase(deliveryStatus) || "Đã hủy".equalsIgnoreCase(deliveryStatus) || "Bị hủy".equalsIgnoreCase(deliveryStatus);
+
+            if (isReturnedOrCancelled) {
+                List<Egg> orderEggs = eggPort.loadEggsByOrderId(currentOrder.getId());
+                boolean hasActiveEggs = orderEggs.stream().anyMatch(e -> !"CANCELLED".equals(e.getStatus()));
+                if (hasActiveEggs) {
+                    final Customer finalCus = customer;
+                    final KiotvietOrder finalOrd = currentOrder;
+                    transactionTemplate.executeWithoutResult(status -> {
+                        applyPenalty(finalCus, finalOrd);
+                    });
+                }
+                throw new BusinessRuleViolationException("Đơn hàng đã bị hoàn trả hoặc hủy.");
             }
 
             // 3. Phát sinh trứng trong transaction
@@ -169,107 +219,70 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
                 .build();
     }
 
-    private Customer processCustomerLogic(String customerCode, String newStatus, Optional<KiotvietOrder> existingOrderOpt) {
-        if (customerCode == null || customerCode.trim().isEmpty()) {
-            customerCode = "KHACH_LE";
-        }
-        final String finalCustomerCode = customerCode.trim();
-        Customer customer = customerPort.loadByCustomerCode(finalCustomerCode).orElseGet(() -> {
-            Customer newCus = new Customer();
-            newCus.setId(UUID.randomUUID().toString());
-            newCus.setCustomerCode(finalCustomerCode);
-            newCus.setStatus("NEW");
-            newCus.setSuccessCount(0);
-            newCus.setReturnStreak(0);
-            newCus.setWarningCount(0);
-            newCus.setCreatedAt(LocalDateTime.now());
-            return newCus;
-        });
-
-        String oldStatus = existingOrderOpt.map(KiotvietOrder::getDeliveryStatus).orElse("");
-        if (newStatus.equals(oldStatus)) {
-            return customer;
+    private void applyPenalty(Customer customer, KiotvietOrder order) {
+        List<Egg> orderEggs = eggPort.loadEggsByOrderId(order.getId());
+        for (Egg egg : orderEggs) {
+            egg.setStatus("CANCELLED");
+            eggPort.saveEgg(egg);
         }
 
-        boolean wasDeliveredBefore = "Đã giao hàng".equalsIgnoreCase(oldStatus) || "Giao thành công".equalsIgnoreCase(oldStatus);
-        boolean isDeliveredNow = "Đã giao hàng".equalsIgnoreCase(newStatus) || "Giao thành công".equalsIgnoreCase(newStatus);
+        int banDays = configPort.findByKey("BAN_DAY")
+                .map(c -> Integer.parseInt(c.getConfigValue()))
+                .orElse(7);
+        boolean permanentBanEnabled = configPort.findByKey("PERMANENT_BAN")
+                .map(c -> Boolean.parseBoolean(c.getConfigValue()))
+                .orElse(false);
 
-        boolean wasReturnedBefore = "Đang chuyển hoàn".equalsIgnoreCase(oldStatus) || "Đã chuyển hoàn".equalsIgnoreCase(oldStatus);
-        boolean isReturnedNow = "Đang chuyển hoàn".equalsIgnoreCase(newStatus) || "Đã chuyển hoàn".equalsIgnoreCase(newStatus);
+        customer.setReturnCount(customer.getReturnCount() + 1);
+        customer.setSuccessCount(0);
+        customer.setEarlyHatchCredits(0);
 
-        // LOGIC LOYALTY SỬA ĐỔI: Tăng khi giao thành công, giảm nếu bị hoàn trả hoặc trạng thái chuyển về chưa giao
-        if (isDeliveredNow && !wasDeliveredBefore) {
-            customer.setSuccessCount(customer.getSuccessCount() + 1);
-        } else if (!isDeliveredNow && wasDeliveredBefore) {
-            customer.setSuccessCount(Math.max(0, customer.getSuccessCount() - 1));
-        }
-
-        if (customer.getReturnStreak() == 0) {
-            if (customer.getSuccessCount() >= 5) {
-                customer.setStatus("TRUSTED_2");
-            } else if (customer.getSuccessCount() >= 2) {
-                customer.setStatus("TRUSTED_1");
-            } else {
-                customer.setStatus("NEW");
-            }
-        }
-
-        if (isReturnedNow && !wasReturnedBefore) {
-            customer.setReturnStreak(customer.getReturnStreak() + 1);
-            if (customer.getReturnStreak() == 1) {
-                customer.setStatus("WARNING");
-            } else if (customer.getReturnStreak() >= 2) {
+        String currentStatus = customer.getStatus();
+        if ("NORMAL".equalsIgnoreCase(currentStatus) || "NEW".equalsIgnoreCase(currentStatus) || currentStatus == null) {
+            customer.setStatus("WARNING");
+            customer.setReturnStreak(1);
+            customer.setWarningCount(customer.getWarningCount() + 1);
+        } else if ("WARNING".equalsIgnoreCase(currentStatus)) {
+            customer.setStatus("TEMP_BANNED");
+            customer.setReturnStreak(2);
+            customer.setUnbanAt(LocalDateTime.now().plusDays(banDays));
+        } else if ("TEMP_BANNED".equalsIgnoreCase(currentStatus)) {
+            if (permanentBanEnabled) {
                 customer.setStatus("BANNED");
+                customer.setReturnStreak(3);
+            } else {
+                customer.setStatus("TEMP_BANNED");
+                customer.setReturnStreak(2);
+                customer.setUnbanAt(LocalDateTime.now().plusDays(banDays));
             }
         }
-
-        return customerPort.saveCustomer(customer);
+        customerPort.saveCustomer(customer);
     }
 
     @Override
     public KiotvietOrder syncOrderIfNeeded(KiotvietOrder order) {
-        if (order.getLastSyncedAt() != null && order.getLastSyncedAt().plusMinutes(5).isAfter(LocalDateTime.now())) {
+        if (order.getLastSyncedAt() != null && order.getLastSyncedAt().plusMinutes(1).isAfter(LocalDateTime.now())) {
             return order;
         }
 
-        log.info("Đang đồng bộ lại đơn hàng {} do quá hạn 5 phút cache.", order.getOrderCode());
+        log.info("Đang đồng bộ lại đơn hàng {} do quá hạn 1 phút cache.", order.getOrderCode());
 
-        // 1. Gọi API KiotViet ngoài Transaction
         KiotvietOrder apiOrder = apiPort.fetchOrderFromKiotviet(order.getOrderCode())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mã đơn hàng này, vui lòng thử lại sau."));
 
         if (apiOrder.getCustomerCode() == null || apiOrder.getCustomerCode().trim().isEmpty() || "KHACH_LE".equalsIgnoreCase(apiOrder.getCustomerCode().trim())) {
             throw new BusinessRuleViolationException("Thiếu thông tin khách hàng");
         }
+        
+        log.info(apiOrder.getDeliveryStatus());
 
-        // 2. Chạy cập nhật database trong Transaction
         return transactionTemplate.execute(status -> {
             KiotvietOrder dbOrder = orderPort.loadByOrderCode(order.getOrderCode())
                     .orElseThrow(() -> new ResourceNotFoundException("Đơn hàng không tồn tại."));
 
-            // Tính toán chuyển đổi trạng thái
-            boolean wasReturnedBefore = "Đang chuyển hoàn".equalsIgnoreCase(dbOrder.getDeliveryStatus()) 
-                    || "Đã chuyển hoàn".equalsIgnoreCase(dbOrder.getDeliveryStatus());
-            boolean isReturnedNow = "Đang chuyển hoàn".equalsIgnoreCase(apiOrder.getDeliveryStatus()) 
-                    || "Đã chuyển hoàn".equalsIgnoreCase(apiOrder.getDeliveryStatus());
-
-            boolean wasReturnedOrCancelledBefore = wasReturnedBefore
-                    || "Hủy".equalsIgnoreCase(dbOrder.getDeliveryStatus())
-                    || "Đã hủy".equalsIgnoreCase(dbOrder.getDeliveryStatus())
-                    || "Bị hủy".equalsIgnoreCase(dbOrder.getDeliveryStatus());
-            boolean isReturnedOrCancelledNow = isReturnedNow
-                    || "Hủy".equalsIgnoreCase(apiOrder.getDeliveryStatus())
-                    || "Đã hủy".equalsIgnoreCase(apiOrder.getDeliveryStatus())
-                    || "Bị hủy".equalsIgnoreCase(apiOrder.getDeliveryStatus());
-
-            boolean wasDeliveredBefore = "Đã giao hàng".equalsIgnoreCase(dbOrder.getDeliveryStatus())
-                    || "Giao thành công".equalsIgnoreCase(dbOrder.getDeliveryStatus());
-            boolean isDeliveredNow = "Đã giao hàng".equalsIgnoreCase(apiOrder.getDeliveryStatus())
-                    || "Giao thành công".equalsIgnoreCase(apiOrder.getDeliveryStatus());
-
             dbOrder.setDeliveryStatus(apiOrder.getDeliveryStatus());
             if ("Đã giao hàng".equalsIgnoreCase(apiOrder.getDeliveryStatus())) {
-                if (dbOrder.getUpdatedAt() == null || !wasDeliveredBefore) {
+                if (dbOrder.getUpdatedAt() == null) {
                     dbOrder.setUpdatedAt(LocalDateTime.now());
                 }
             } else {
@@ -283,59 +296,23 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
 
             KiotvietOrder updatedOrder = orderPort.saveOrder(dbOrder);
 
-            Customer customer = customerPort.loadByCustomerCodeForUpdate(dbOrder.getCustomerCode()).orElseGet(() -> {
-                Customer newCus = new Customer();
-                newCus.setId(UUID.randomUUID().toString());
-                newCus.setCustomerCode(dbOrder.getCustomerCode());
-                newCus.setStatus("NEW");
-                newCus.setSuccessCount(0);
-                newCus.setReturnStreak(0);
-                newCus.setWarningCount(0);
-                newCus.setEarlyHatchCredits(0);
-                newCus.setReturnCount(0);
-                newCus.setCreatedAt(LocalDateTime.now());
-                return newCus;
-            });
+            String deliveryStatus = apiOrder.getDeliveryStatus();
+            boolean isReturnedOrCancelledNow = "Đang chuyển hoàn".equalsIgnoreCase(deliveryStatus) || "Đã chuyển hoàn".equalsIgnoreCase(deliveryStatus)
+                    || "Hủy".equalsIgnoreCase(deliveryStatus) || "Đã hủy".equalsIgnoreCase(deliveryStatus) || "Bị hủy".equalsIgnoreCase(deliveryStatus);
 
-            // LOGIC LOYALTY SỬA ĐỔI
-            if (isDeliveredNow && !wasDeliveredBefore) {
-                customer.setSuccessCount(customer.getSuccessCount() + 1);
-            } else if (!isDeliveredNow && wasDeliveredBefore) {
-                customer.setSuccessCount(Math.max(0, customer.getSuccessCount() - 1));
-            }
-
-            if (customer.getReturnStreak() == 0) {
-                if (customer.getSuccessCount() >= 5) {
-                    customer.setStatus("TRUSTED_2");
-                } else if (customer.getSuccessCount() >= 2) {
-                    customer.setStatus("TRUSTED_1");
-                } else {
-                    customer.setStatus("NEW");
-                }
-            }
-
-            if (isReturnedOrCancelledNow && !wasReturnedOrCancelledBefore) {
-                customer.setEarlyHatchCredits(0); // Reset early hatch credits on return/cancel
-
-                if (isReturnedNow && !wasReturnedBefore) {
-                    customer.setReturnStreak(customer.getReturnStreak() + 1);
-                    customer.setReturnCount(customer.getReturnCount() + 1); // Increment return_count
-                    if (customer.getReturnStreak() == 1) {
-                        customer.setStatus("WARNING");
-                    } else if (customer.getReturnStreak() >= 2) {
-                        customer.setStatus("BANNED");
-                    }
-                }
-
-                // Hủy tất cả trứng khi đơn hàng bị hoàn/trả/hủy
+            if (isReturnedOrCancelledNow) {
                 List<Egg> eggs = eggPort.loadEggsByOrderId(dbOrder.getId());
-                for (Egg egg : eggs) {
-                    egg.setStatus("CANCELLED");
-                    eggPort.saveEgg(egg);
+                boolean hasActiveEggs = eggs.stream().anyMatch(e -> !"CANCELLED".equals(e.getStatus()));
+                
+                if (hasActiveEggs) {
+                    Customer cus = customerPort.loadByCustomerCodeForUpdate(dbOrder.getCustomerCode())
+                            .orElseThrow(() -> new ResourceNotFoundException("Lỗi dữ liệu khách hàng."));
+                    
+                    // Gọi hàm applyPenalty. Hàm này sẽ tự động hủy toàn bộ trứng và phạt Customer.
+                    applyPenalty(cus, dbOrder); 
                 }
             }
 
-            customerPort.saveCustomer(customer);
             return updatedOrder;
         });
     }
@@ -415,21 +392,10 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
                 ProductEggMapping mapping1 = drawMappingFromList(type1Mappings);
                 if (mapping1 != null) {
                     LocalDateTime hatchAt = null;
-                    if (customer.getReturnStreak() == 1) {
-                        hatchAt = LocalDateTime.now().plusDays(15);
-                        if (useCredit) {
-                            hatchAt = hatchAt.minusDays(3);
-                        }
-                    }
-
                     String initialStatus = "READY_TO_CLAIM";
-                    if (hatchAt != null && LocalDateTime.now().isBefore(hatchAt)) {
+                    if ("WARNING".equalsIgnoreCase(customer.getStatus())) {
+                        hatchAt = LocalDateTime.now().plusDays(3);
                         initialStatus = "HATCHING";
-                    } else {
-                        boolean isClean = customer.getReturnStreak() == 0;
-                        if (!isClean) {
-                            initialStatus = "WAITING_ORDER_COMPLETION";
-                        }
                     }
 
                     Egg egg1 = Egg.builder()

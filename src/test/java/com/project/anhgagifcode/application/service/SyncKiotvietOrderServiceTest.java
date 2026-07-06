@@ -36,6 +36,8 @@ class SyncKiotvietOrderServiceTest {
     @Mock
     private KiotvietProductPersistencePort productPort;
     @Mock
+    private SystemConfigPersistencePort configPort;
+    @Mock
     private org.springframework.transaction.PlatformTransactionManager transactionManager;
 
     @InjectMocks
@@ -224,7 +226,7 @@ class SyncKiotvietOrderServiceTest {
     }
 
     @Test
-    void syncAndGetOrderDetails_WarningCustomer_Egg1Gets15DaysCooldown() {
+    void syncAndGetOrderDetails_WarningCustomer_Egg1Gets3DaysCooldown() {
         when(orderPort.loadByOrderCode("OD123")).thenReturn(Optional.of(mockOrder));
         when(customerPort.loadByCustomerCode("CUS99")).thenReturn(Optional.of(warningCustomer));
 
@@ -245,9 +247,10 @@ class SyncKiotvietOrderServiceTest {
         Egg egg1 = generatedEggs.stream().filter(e -> e.getEggType() == 1).findFirst().orElseThrow();
         Egg egg2 = generatedEggs.stream().filter(e -> e.getEggType() == 2).findFirst().orElseThrow();
 
-        // Warning customer: Both eggs get 15 days cooldown
+        // Warning customer: Egg 1 gets 3 days cooldown, Egg 2 gets 15 days cooldown
         assertNotNull(egg1.getHatchAt());
-        assertTrue(egg1.getHatchAt().isAfter(LocalDateTime.now().plusDays(14)));
+        assertTrue(egg1.getHatchAt().isAfter(LocalDateTime.now().plusDays(2)));
+        assertTrue(egg1.getHatchAt().isBefore(LocalDateTime.now().plusDays(4)));
         assertNotNull(egg2.getHatchAt());
         assertTrue(egg2.getHatchAt().isAfter(LocalDateTime.now().plusDays(14)));
     }
@@ -320,9 +323,9 @@ class SyncKiotvietOrderServiceTest {
         lenient().when(apiPort.fetchOrderFromKiotviet(expectedFullCode)).thenReturn(Optional.of(expectedOrder));
         
         // Mock persistence
-        when(orderPort.saveOrder(any(KiotvietOrder.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(customerPort.loadByCustomerCode("CUS99")).thenReturn(Optional.of(cleanCustomer));
-        when(customerPort.saveCustomer(any(Customer.class))).thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(orderPort.saveOrder(any(KiotvietOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(customerPort.loadByCustomerCode("CUS99")).thenReturn(Optional.of(cleanCustomer));
+        lenient().when(customerPort.saveCustomer(any(Customer.class))).thenAnswer(inv -> inv.getArgument(0));
         
         // Call service
         SyncOrderResponse response = syncService.syncAndGetOrderDetails(suffix);

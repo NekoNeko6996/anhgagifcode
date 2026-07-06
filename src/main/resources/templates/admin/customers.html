@@ -25,10 +25,9 @@
                         <div>
                             <select id="statusFilter" class="form-select" style="padding: 10px 40px 10px 16px; width: 180px;" onchange="filterCustomers()">
                                 <option value="ALL">Mọi trạng thái</option>
-                                <option value="NEW">NEW</option>
-                                <option value="TRUSTED_1">TRUSTED_1</option>
-                                <option value="TRUSTED_2">TRUSTED_2</option>
+                                <option value="NORMAL">NORMAL</option>
                                 <option value="WARNING">WARNING</option>
+                                <option value="TEMP_BANNED">TEMP_BANNED</option>
                                 <option value="BANNED">BANNED</option>
                             </select>
                         </div>
@@ -50,13 +49,14 @@
                                 <th>Số Lần Cảnh Báo</th>
                                 <th>Tín Dụng Duyệt Sớm</th>
                                 <th>Tổng Đơn Hoàn</th>
+                                <th>Thời Gian Mở Khóa</th>
                                 <th>Ngày Tạo</th>
                                 <th>Hành Động</th>
                             </tr>
                         </thead>
                         <tbody id="customersTableBody">
                             <tr>
-                                <td colspan="10" style="text-align: center; color: var(--text-secondary);">Đang tải dữ liệu...</td>
+                                <td colspan="11" style="text-align: center; color: var(--text-secondary);">Đang tải dữ liệu...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -82,12 +82,15 @@
                     <div class="form-group">
                         <label class="form-label" for="editStatus">Trạng thái mới</label>
                         <select id="editStatus" class="form-select" required>
-                            <option value="NEW">NEW (Mới tạo/bình thường)</option>
-                            <option value="TRUSTED_1">TRUSTED_1 (Mua hàng thành công 1 đơn)</option>
-                            <option value="TRUSTED_2">TRUSTED_2 (Mua hàng thành công nhiều đơn)</option>
-                            <option value="WARNING">WARNING (Cảnh báo gian lận/hoàn hàng)</option>
-                            <option value="BANNED">BANNED (Chặn vĩnh viễn)</option>
+                            <option value="NORMAL">NORMAL (Bình thường)</option>
+                            <option value="WARNING">WARNING (Cảnh báo hoàn hàng)</option>
+                            <option value="TEMP_BANNED">TEMP_BANNED (Khóa tạm thời)</option>
+                            <option value="BANNED">BANNED (Khóa vĩnh viễn)</option>
                         </select>
+                    </div>
+                    <div class="form-group" id="unbanAtFormGroup">
+                        <label class="form-label" for="editUnbanAt">Thời gian mở khóa (unban_at)</label>
+                        <input class="form-input" type="datetime-local" id="editUnbanAt">
                     </div>
                     <div class="form-group">
                         <label class="form-label" for="editSuccessCount">Số đơn mua thành công</label>
@@ -135,7 +138,7 @@
             tbody.innerHTML = '';
 
             if (customers.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--text-secondary);">Không có khách hàng nào được ghi nhận</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="11" style="text-align: center; color: var(--text-secondary);">Không có khách hàng nào được ghi nhận</td></tr>`;
                 return;
             }
 
@@ -144,12 +147,12 @@
                 
                 // Status badge
                 let statusBadge = '';
-                if (customer.status === 'NEW') {
-                    statusBadge = `<span class="badge badge-info">NEW</span>`;
-                } else if (customer.status.startsWith('TRUSTED')) {
-                    statusBadge = `<span class="badge badge-success">${customer.status}</span>`;
+                if (customer.status === 'NORMAL' || customer.status === 'NEW') {
+                    statusBadge = `<span class="badge badge-info">NORMAL</span>`;
                 } else if (customer.status === 'WARNING') {
                     statusBadge = `<span class="badge badge-warning">WARNING</span>`;
+                } else if (customer.status === 'TEMP_BANNED') {
+                    statusBadge = `<span class="badge" style="background-color: #e67e22; color: white;">TEMP_BANNED</span>`;
                 } else if (customer.status === 'BANNED') {
                     statusBadge = `<span class="badge badge-danger">BANNED</span>`;
                 } else {
@@ -178,9 +181,10 @@
                             ${customer.returnCount}
                         </span>
                     </td>
+                    <td>${customer.unbanAt || '-'}</td>
                     <td>${formatDateTime(customer.createdAt)}</td>
                     <td>
-                        <button class="btn btn-secondary" style="padding: 6px 12px; font-size:12px;" onclick="openEditModal('${customer.customerCode}', '${customer.customerName}', '${customer.status}', ${customer.successCount}, ${customer.returnStreak})">
+                        <button class="btn btn-secondary" style="padding: 6px 12px; font-size:12px;" onclick="openEditModal('${customer.customerCode}', '${customer.customerName}', '${customer.status}', ${customer.successCount}, ${customer.returnStreak}, '${customer.unbanAt || ''}')">
                             <i class="fa-solid fa-pen-to-square"></i> Sửa
                         </button>
                     </td>
@@ -205,12 +209,13 @@
             renderCustomers(filtered);
         }
 
-        function openEditModal(code, name, status, successCount, returnStreak) {
+        function openEditModal(code, name, status, successCount, returnStreak, unbanAt) {
             document.getElementById('editCustomerCode').value = code;
             document.getElementById('editCustomerName').value = name;
             document.getElementById('editStatus').value = status;
             document.getElementById('editSuccessCount').value = successCount;
             document.getElementById('editReturnStreak').value = returnStreak;
+            document.getElementById('editUnbanAt').value = unbanAt ? unbanAt.substring(0, 16) : '';
             
             document.getElementById('editCustomerModal').classList.add('active');
         }
@@ -225,6 +230,8 @@
             const status = document.getElementById('editStatus').value;
             const successCount = parseInt(document.getElementById('editSuccessCount').value);
             const returnStreak = parseInt(document.getElementById('editReturnStreak').value);
+            const unbanAtVal = document.getElementById('editUnbanAt').value;
+            const unbanAt = unbanAtVal ? unbanAtVal : null;
 
             try {
                 const response = await fetchWithAuth(`/api/admin/customers/${code}/status`, {
@@ -232,7 +239,8 @@
                     body: JSON.stringify({
                         status,
                         successCount,
-                        returnStreak
+                        returnStreak,
+                        unbanAt
                     })
                 });
 

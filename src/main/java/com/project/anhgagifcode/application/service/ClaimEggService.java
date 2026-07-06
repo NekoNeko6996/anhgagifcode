@@ -63,23 +63,7 @@ public class ClaimEggService implements ClaimEggUseCase {
         // Nếu tất cả trứng trong nhóm đã được mở trước đó, trả về danh sách tài khoản ngay lập tức
         boolean allInitiallyClaimed = initialEggs.stream().allMatch(e -> "CLAIMED".equals(e.getStatus()));
         if (allInitiallyClaimed) {
-            List<ClaimedAccountDto> claimedAccounts = new ArrayList<>();
-            for (Egg egg : initialEggs) {
-                GiftAccount assignedAccount = egg.getAccount();
-                if (assignedAccount != null) {
-                    claimedAccounts.add(ClaimedAccountDto.builder()
-                            .username(assignedAccount.getUsername())
-                            .password(assignedAccount.getPassword())
-                            .platform(assignedAccount.getPlatform())
-                            .tier(egg.getGiftPool() != null ? egg.getGiftPool().getTier() : null)
-                            .build());
-                }
-            }
-            return ClaimEggResponse.builder()
-                    .accounts(claimedAccounts)
-                    .stuckCount(0)
-                    .message("Dưới đây là danh sách thông tin tài khoản đã nhận của bạn.")
-                    .build();
+            return buildResponseFromClaimedEggs(initialEggs, 0, "Dưới đây là danh sách thông tin tài khoản đã nhận của bạn.");
         }
 
         boolean anyCancelled = initialEggs.stream().anyMatch(e -> "CANCELLED".equals(e.getStatus()));
@@ -88,6 +72,7 @@ public class ClaimEggService implements ClaimEggUseCase {
         }
 
         // 2. Đồng bộ trạng thái đơn hàng thời gian thực ngoài Transaction nếu quá hạn 5 phút cache
+        // Hàm này SẼ TỰ ĐỘNG phạt KH và hủy trứng nếu KiotViet báo đơn bị hoàn/hủy
         KiotvietOrder syncedOrder = syncOrderUseCase.syncOrderIfNeeded(firstEgg.getOrder());
 
         // 3. Thực hiện bốc quà và cập nhật trạng thái trong Transaction
@@ -98,26 +83,15 @@ public class ClaimEggService implements ClaimEggUseCase {
                 throw new ResourceNotFoundException("Không tìm thấy trứng hợp lệ cho đơn hàng và sản phẩm này.");
             }
 
+            // Ghi nhận trạng thái hoàn thành của toàn bộ đơn hàng TRƯỚC KHI xử lý trứng hiện tại
+            List<Egg> allOrderEggsBefore = eggPort.loadEggsByOrderId(syncedOrder.getId());
+            boolean wasAlreadyFullyClaimed = allOrderEggsBefore.stream()
+                    .allMatch(e -> "CLAIMED".equalsIgnoreCase(e.getStatus()));
+
             // Nếu tất cả trứng đã được mở trong lúc đồng bộ, trả về danh sách tài khoản
             boolean allClaimed = eggsToClaim.stream().allMatch(e -> "CLAIMED".equals(e.getStatus()));
             if (allClaimed) {
-                List<ClaimedAccountDto> claimedAccounts = new ArrayList<>();
-                for (Egg egg : eggsToClaim) {
-                    GiftAccount assignedAccount = egg.getAccount();
-                    if (assignedAccount != null) {
-                        claimedAccounts.add(ClaimedAccountDto.builder()
-                                .username(assignedAccount.getUsername())
-                                .password(assignedAccount.getPassword())
-                                .platform(assignedAccount.getPlatform())
-                                .tier(egg.getGiftPool() != null ? egg.getGiftPool().getTier() : null)
-                                .build());
-                    }
-                }
-                return ClaimEggResponse.builder()
-                        .accounts(claimedAccounts)
-                        .stuckCount(0)
-                        .message("Dưới đây là danh sách thông tin tài khoản đã nhận của bạn.")
-                        .build();
+                return buildResponseFromClaimedEggs(eggsToClaim, 0, "Dưới đây là danh sách thông tin tài khoản đã nhận của bạn.");
             }
 
             boolean hasCancelled = eggsToClaim.stream().anyMatch(e -> "CANCELLED".equals(e.getStatus()));
@@ -134,19 +108,9 @@ public class ClaimEggService implements ClaimEggUseCase {
             String deliveryStatus = syncedOrder.getDeliveryStatus();
             boolean isReturnedOrCancelled = "Đang chuyển hoàn".equalsIgnoreCase(deliveryStatus) || "Đã chuyển hoàn".equalsIgnoreCase(deliveryStatus)
                     || "Hủy".equalsIgnoreCase(deliveryStatus) || "Đã hủy".equalsIgnoreCase(deliveryStatus) || "Bị hủy".equalsIgnoreCase(deliveryStatus);
+            
             if (isReturnedOrCancelled) {
-                for (Egg egg : eggsToClaim) {
-                    if (!"CANCELLED".equals(egg.getStatus())) {
-                        egg.setStatus("CANCELLED");
-                        eggPort.saveEgg(egg);
-                    }
-                }
-                
-                Customer customer = customerPort.loadByCustomerCodeForUpdate(syncedOrder.getCustomerCode())
-                        .orElseThrow(() -> new ResourceNotFoundException("Lỗi dữ liệu khách hàng."));
-                customer.setEarlyHatchCredits(0);
-                customerPort.saveCustomer(customer);
-                
+                // Logic phạt và hủy trứng đã được syncOrderUseCase lo liệu, ở đây chỉ cần chặn request đi tiếp
                 throw new BusinessRuleViolationException("Đơn hàng đã bị hoàn trả hoặc hủy, nhóm trứng này đã bị hủy.");
             }
 
@@ -159,24 +123,26 @@ public class ClaimEggService implements ClaimEggUseCase {
             Customer customer = customerPort.loadByCustomerCodeForUpdate(syncedOrder.getCustomerCode())
                     .orElseThrow(() -> new ResourceNotFoundException("Lỗi dữ liệu khách hàng."));
 
-            // 3.4 Kiểm tra trạng thái cấm (BANNED)
-            if ("BANNED".equals(customer.getStatus())) {
+            // 3.4 Kiểm tra trạng thái cấm (BANNED / TEMP_BANNED)
+            if ("BANNED".equalsIgnoreCase(customer.getStatus())) {
                 throw new BusinessRuleViolationException("Tài khoản bị khóa do vi phạm chính sách");
             }
+            if ("TEMP_BANNED".equalsIgnoreCase(customer.getStatus()) && customer.getUnbanAt() != null) {
+                if (LocalDateTime.now().isBefore(customer.getUnbanAt())) {
+                    throw new BusinessRuleViolationException("Tài khoản của bạn đang bị khóa tạm thời đến ngày " + customer.getUnbanAt() + ".");
+                }
+                // Nếu đã qua thời hạn (Lazy Unban): Cho phép đi tiếp mở trứng, nhưng chưa được gỡ thẻ phạt
+            }
 
-            // 3.5 Cập nhật trạng thái trứng động dựa trên thông tin thực tế mới nhất trước khi kiểm tra
+            // 3.5 Cập nhật trạng thái trứng động
             for (Egg egg : eggsToClaim) {
                 if (!"CLAIMED".equals(egg.getStatus()) && !"CANCELLED".equals(egg.getStatus())) {
                     String dynamicStatus;
-                    if (!isDelivered) {
-                        dynamicStatus = "WAITING_ORDER_COMPLETION";
+                    boolean inHatchCooldown = egg.getHatchAt() != null && LocalDateTime.now().isBefore(egg.getHatchAt());
+                    if (inHatchCooldown) {
+                        dynamicStatus = "HATCHING";
                     } else {
-                        boolean inHatchCooldown = egg.getHatchAt() != null && LocalDateTime.now().isBefore(egg.getHatchAt());
-                        if (inHatchCooldown) {
-                            dynamicStatus = "HATCHING";
-                        } else {
-                            dynamicStatus = "READY_TO_CLAIM";
-                        }
+                        dynamicStatus = "READY_TO_CLAIM";
                     }
 
                     if (!dynamicStatus.equals(egg.getStatus())) {
@@ -186,7 +152,7 @@ public class ClaimEggService implements ClaimEggUseCase {
                 }
             }
 
-            // 3.6 Kiểm tra trạng thái trứng sau khi cập nhật động
+            // 3.6 Kiểm tra trứng đã sẵn sàng
             List<Egg> readyEggs = eggsToClaim.stream()
                     .filter(e -> "READY_TO_CLAIM".equals(e.getStatus()))
                     .collect(Collectors.toList());
@@ -199,19 +165,16 @@ public class ClaimEggService implements ClaimEggUseCase {
                 throw new BusinessRuleViolationException("Không có trứng nào sẵn sàng để nhận.");
             }
 
-            // 3.8 Bốc Quà & Partial Success
-            List<ClaimedAccountDto> claimedAccounts = new ArrayList<>();
-            // Thu thập các tài khoản đã được claim trước đó của nhóm này (nếu có)
-            for (Egg egg : eggsToClaim) {
-                if ("CLAIMED".equals(egg.getStatus()) && egg.getAccount() != null) {
-                    claimedAccounts.add(ClaimedAccountDto.builder()
-                            .username(egg.getAccount().getUsername())
-                            .password(egg.getAccount().getPassword())
-                            .platform(egg.getAccount().getPlatform())
-                            .tier(egg.getGiftPool() != null ? egg.getGiftPool().getTier() : null)
-                            .build());
-                }
-            }
+            // 3.8 Bốc Quà
+            List<ClaimedAccountDto> claimedAccounts = eggsToClaim.stream()
+                    .filter(e -> "CLAIMED".equals(e.getStatus()) && e.getAccount() != null)
+                    .map(e -> ClaimedAccountDto.builder()
+                            .username(e.getAccount().getUsername())
+                            .password(e.getAccount().getPassword())
+                            .platform(e.getAccount().getPlatform())
+                            .tier(e.getGiftPool() != null ? e.getGiftPool().getTier() : null)
+                            .build())
+                    .collect(Collectors.toList());
 
             int stuckCount = 0;
             List<Egg> updatedEggs = new ArrayList<>();
@@ -266,23 +229,41 @@ public class ClaimEggService implements ClaimEggUseCase {
                 eggPort.saveAllEggs(updatedEggs);
             }
 
-            // 3.12 Xử lý điều kiện Ân xá (Reset Streak) cho khách hàng WARNING
-            if (customer.getReturnStreak() == 1) {
-                processAmnesty(customer, syncedOrder);
-            }
+            // 3.12 XÉT ĐIỀU KIỆN CHUỘC LỖI & CỘNG VIP (Mở xong toàn bộ đơn hàng)
+            if (!wasAlreadyFullyClaimed) {
+                List<Egg> allOrderEggsAfter = eggPort.loadEggsByOrderId(syncedOrder.getId());
+                boolean nowFullyClaimed = allOrderEggsAfter.stream()
+                        .allMatch(e -> "CLAIMED".equalsIgnoreCase(e.getStatus()));
 
-            // TÍCH LŨY TÍN DỤNG DUYỆT SỚM (Chỉ khi mở thành công tất cả trứng của đơn và là trứng loại 2)
-            List<Egg> allOrderEggs = eggPort.loadEggsByOrderId(syncedOrder.getId());
-            boolean allClaimedInOrder = allOrderEggs.stream()
-                    .allMatch(e -> "CLAIMED".equalsIgnoreCase(e.getStatus()));
+                if (nowFullyClaimed) {
+                    // A. Chỉ cộng success_count nếu đơn hàng có TRỨNG VIP
+                    boolean containsVipEgg = allOrderEggsAfter.stream().anyMatch(e -> e.getEggType() == 2);
+                    if (containsVipEgg) {
+                        customer.setSuccessCount(customer.getSuccessCount() + 1);
+                    }
 
-            if (allClaimedInOrder && eggType == 2 && customer.getReturnCount() == 0 && !"BANNED".equals(customer.getStatus())) {
-                customer.setEarlyHatchCredits(2);
+                    // B. Hạ cấp phạt (Giảm án)
+                    if ("TEMP_BANNED".equalsIgnoreCase(customer.getStatus())) {
+                        customer.setStatus("WARNING");
+                        customer.setReturnStreak(1);
+                        customer.setUnbanAt(null);
+                    } else if ("WARNING".equalsIgnoreCase(customer.getStatus())) {
+                        customer.setStatus("NORMAL");
+                        customer.setReturnStreak(0);
+                    }
+                    
+                    // C. Tích lũy tín dụng duyệt sớm (Early Hatch Credits)
+                    // (Chỉ khi trứng vừa mở là trứng loại 2 và khách chưa từng có lịch sử hoàn hàng)
+                    if (containsVipEgg && customer.getReturnCount() == 0 && !"BANNED".equalsIgnoreCase(customer.getStatus())) {
+                        customer.setEarlyHatchCredits(2);
+                    }
+                }
             }
+            
             customerPort.saveCustomer(customer);
 
             String msg = stuckCount > 0 
-                ? String.format("Mở trứng hoàn tất. Thành công: %d, Kẹt (thiếu tài khoản VIP): %d.", updatedEggs.size(), stuckCount)
+                ? String.format("Mở trứng hoàn tất.", updatedEggs.size(), stuckCount)
                 : "Chúc mừng! Bạn đã mở trứng thành công.";
 
             return ClaimEggResponse.builder()
@@ -293,59 +274,22 @@ public class ClaimEggService implements ClaimEggUseCase {
         });
     }
 
-    private boolean isAbsoluteSuccess(KiotvietOrder order) {
-        if (!"Đã giao hàng".equalsIgnoreCase(order.getDeliveryStatus())) {
-            return false;
-        }
-        LocalDateTime deliveryDate = order.getUpdatedAt() != null ? order.getUpdatedAt() : order.getCreatedAt();
-        return deliveryDate.plusDays(15).isBefore(LocalDateTime.now());
-    }
-
-    private void processAmnesty(Customer customer, KiotvietOrder currentOrder) {
-        // Load all orders of this customer
-        List<KiotvietOrder> customerOrders = orderPort.findByCustomerCode(customer.getCustomerCode());
-
-        // Find creation timestamp of the latest returned order
-        LocalDateTime latestReturnTime = customerOrders.stream()
-                .filter(o -> "Đang chuyển hoàn".equalsIgnoreCase(o.getDeliveryStatus()) 
-                        || "Đã chuyển hoàn".equalsIgnoreCase(o.getDeliveryStatus()))
-                .map(KiotvietOrder::getCreatedAt)
-                .max(LocalDateTime::compareTo)
-                .orElse(LocalDateTime.MIN);
-
-        // Get orders created after the latest returned order
-        List<KiotvietOrder> postReturnOrders = customerOrders.stream()
-                .filter(o -> o.getCreatedAt().isAfter(latestReturnTime))
+    // Hàm tiện ích để giảm bớt code thừa
+    private ClaimEggResponse buildResponseFromClaimedEggs(List<Egg> eggs, int stuckCount, String message) {
+        List<ClaimedAccountDto> claimedAccounts = eggs.stream()
+                .filter(e -> e.getAccount() != null)
+                .map(e -> ClaimedAccountDto.builder()
+                        .username(e.getAccount().getUsername())
+                        .password(e.getAccount().getPassword())
+                        .platform(e.getAccount().getPlatform())
+                        .tier(e.getGiftPool() != null ? e.getGiftPool().getTier() : null)
+                        .build())
                 .collect(Collectors.toList());
 
-        int fullySuccessfulOrders = 0;
-        for (KiotvietOrder postOrder : postReturnOrders) {
-            // Check if order is in absolute success state
-            if (isAbsoluteSuccess(postOrder)) {
-                List<Egg> postOrderEggs = eggPort.loadEggsByOrderId(postOrder.getId());
-                if (!postOrderEggs.isEmpty()) {
-                    // Check if all eggs have been successfully claimed/opened
-                    boolean allClaimed = postOrderEggs.stream()
-                            .allMatch(e -> "CLAIMED".equalsIgnoreCase(e.getStatus()));
-                    if (allClaimed) {
-                        fullySuccessfulOrders++;
-                    }
-                }
-            }
-        }
-
-        // Reset streak if customer has successfully opened all eggs of at least 2 orders post-return
-        if (fullySuccessfulOrders >= 2) {
-            customer.setReturnStreak(0);
-            if (customer.getSuccessCount() >= 5) {
-                customer.setStatus("TRUSTED_2");
-            } else if (customer.getSuccessCount() >= 2) {
-                customer.setStatus("TRUSTED_1");
-            } else {
-                customer.setStatus("NEW");
-            }
-            customerPort.saveCustomer(customer);
-            log.info("Khách hàng {} được ân xá, reset return streak về 0.", customer.getCustomerCode());
-        }
+        return ClaimEggResponse.builder()
+                .accounts(claimedAccounts)
+                .stuckCount(stuckCount)
+                .message(message)
+                .build();
     }
 }

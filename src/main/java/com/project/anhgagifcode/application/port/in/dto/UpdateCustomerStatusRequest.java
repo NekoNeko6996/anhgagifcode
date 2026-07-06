@@ -23,4 +23,7 @@ public class UpdateCustomerStatusRequest {
 
     @Schema(description = "Số đơn hàng giao thành công")
     private Integer successCount;
+
+    @Schema(description = "Ngày gỡ khóa tài khoản")
+    private java.time.LocalDateTime unbanAt;
 }

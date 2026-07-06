@@ -202,46 +202,19 @@ class ClaimEggServiceTest {
         validEgg.setStatus("READY_TO_CLAIM");
         validEgg.setHatchAt(LocalDateTime.now().minusMinutes(5)); // Warning customer egg 1 has hatch time
         validOrder.setDeliveryStatus("Đã giao hàng");
-        validOrder.setUpdatedAt(LocalDateTime.now().minusDays(20)); // Absolute success
 
         when(eggPort.loadEggsForClaim("order-uuid", 1)).thenReturn(List.of(validEgg));
         when(customerPort.loadByCustomerCodeForUpdate("CUS88")).thenReturn(Optional.of(warningCustomer));
         when(accountPort.pickAvailableAccountForUpdateSkipLocked("pool-uuid")).thenReturn(Optional.of(availableAccount));
 
-        // Mock two orders post-return that are fully claimed and successful
-        KiotvietOrder order1 = KiotvietOrder.builder()
-                .id("order-1")
-                .customerCode("CUS88")
-                .deliveryStatus("Đã giao hàng")
-                .createdAt(LocalDateTime.now().minusDays(20))
-                .updatedAt(LocalDateTime.now().minusDays(20))
-                .build();
-
-        KiotvietOrder order2 = KiotvietOrder.builder()
-                .id("order-2")
-                .customerCode("CUS88")
-                .deliveryStatus("Đã giao hàng")
-                .createdAt(LocalDateTime.now().minusDays(20))
-                .updatedAt(LocalDateTime.now().minusDays(20))
-                .build();
-
-        // Warning customer history
-        when(orderPort.findByCustomerCode("CUS88")).thenReturn(List.of(validOrder, order1, order2));
-
-        // Mock eggs for post orders: all are claimed
-        Egg eggO1 = Egg.builder().status("CLAIMED").build();
-        Egg eggO2 = Egg.builder().status("CLAIMED").build();
-
         // Stub eggPort.loadEggsByOrderId
-        when(eggPort.loadEggsByOrderId("order-uuid")).thenReturn(List.of(validEgg)); // current egg
-        when(eggPort.loadEggsByOrderId("order-1")).thenReturn(List.of(eggO1));
-        when(eggPort.loadEggsByOrderId("order-2")).thenReturn(List.of(eggO2));
+        when(eggPort.loadEggsByOrderId("order-uuid")).thenReturn(List.of(validEgg));
 
         // Stub customerPort.saveCustomer to verify amnesty reset
         claimService.claimEggReward("order-uuid", 1, "127.0.0.1");
 
-        // Verify return streak is reset to 0
-        verify(customerPort, times(2)).saveCustomer(argThat(cus -> cus.getReturnStreak() == 0 && "TRUSTED_1".equals(cus.getStatus())));
+        // Verify return streak is reset to 0 and status is NORMAL
+        verify(customerPort).saveCustomer(argThat(cus -> cus.getReturnStreak() == 0 && "NORMAL".equals(cus.getStatus())));
     }
 
     @Test
