@@ -102,7 +102,7 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
             }
 
             KiotvietOrder apiOrder = apiOrderOpt
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mã đơn hàng này trên hệ thống KiotViet."));
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mã đơn hàng này trên hệ thống, vui lòng thử lại sau."));
 
             if (apiOrder.getCustomerCode() == null || apiOrder.getCustomerCode().trim().isEmpty() || "KHACH_LE".equalsIgnoreCase(apiOrder.getCustomerCode().trim())) {
                 throw new BusinessRuleViolationException("Thiếu thông tin khách hàng");
@@ -236,7 +236,7 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
 
         // 1. Gọi API KiotViet ngoài Transaction
         KiotvietOrder apiOrder = apiPort.fetchOrderFromKiotviet(order.getOrderCode())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mã đơn hàng này trên KiotViet."));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mã đơn hàng này, vui lòng thử lại sau."));
 
         if (apiOrder.getCustomerCode() == null || apiOrder.getCustomerCode().trim().isEmpty() || "KHACH_LE".equalsIgnoreCase(apiOrder.getCustomerCode().trim())) {
             throw new BusinessRuleViolationException("Thiếu thông tin khách hàng");
@@ -245,7 +245,7 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
         // 2. Chạy cập nhật database trong Transaction
         return transactionTemplate.execute(status -> {
             KiotvietOrder dbOrder = orderPort.loadByOrderCode(order.getOrderCode())
-                    .orElseThrow(() -> new ResourceNotFoundException("Đơn hàng không tồn tại trong database."));
+                    .orElseThrow(() -> new ResourceNotFoundException("Đơn hàng không tồn tại."));
 
             // Tính toán chuyển đổi trạng thái
             boolean wasReturnedBefore = "Đang chuyển hoàn".equalsIgnoreCase(dbOrder.getDeliveryStatus()) 
@@ -363,7 +363,7 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
         List<ProductEggMapping> mappings = mappingPort.loadMappingsByProductIds(productIds);
         if (mappings.isEmpty()) {
             notificationPort.sendAlert(String.format(
-                    "⚠️ <b>CẢNH BÁO SỰ CỐ: Không có trứng khả dụng</b>\n" +
+                    "<b>CẢNH BÁO SỰ CỐ: Không có trứng khả dụng</b>\n" +
                     "• Mã đơn hàng: <code>%s</code>\n" +
                     "• Mã khách hàng: <code>%s</code>\n" +
                     "• Chi tiết: Sản phẩm trong đơn chưa được cấu hình liên kết với bể quà.",
