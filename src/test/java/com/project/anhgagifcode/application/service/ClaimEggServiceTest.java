@@ -130,6 +130,13 @@ class ClaimEggServiceTest {
         assertEquals("gift_user", response.getAccounts().get(0).getUsername());
         assertEquals("Steam", response.getAccounts().get(0).getPlatform());
         assertEquals("A", response.getAccounts().get(0).getTier());
+        assertEquals(1, response.getTotalCount());
+        assertEquals(1, response.getClaimedCount());
+        assertEquals(0, response.getHatchingCount());
+        assertEquals(0, response.getStuckCount());
+        assertNotNull(response.getEggs());
+        assertEquals(1, response.getEggs().size());
+        assertEquals("CLAIMED", response.getEggs().get(0).getDisplayStatus());
 
         verify(accountPort, times(1)).updateAccount(argThat(acc -> "ASSIGNED".equals(acc.getStatus())));
         verify(eggPort, times(1)).saveAllEggs(anyList());
@@ -181,6 +188,11 @@ class ClaimEggServiceTest {
         assertEquals("gift_user", response.getAccounts().get(0).getUsername());
         assertEquals("Steam", response.getAccounts().get(0).getPlatform());
         assertEquals("A", response.getAccounts().get(0).getTier());
+        assertEquals(1, response.getTotalCount());
+        assertEquals(1, response.getClaimedCount());
+        assertEquals(0, response.getHatchingCount());
+        assertEquals(0, response.getStuckCount());
+        assertEquals(1, response.getEggs().size());
     }
 
     @Test
@@ -230,6 +242,11 @@ class ClaimEggServiceTest {
         assertEquals("gift_user", response.getAccounts().get(0).getUsername());
         assertEquals("Steam", response.getAccounts().get(0).getPlatform());
         assertEquals("A", response.getAccounts().get(0).getTier());
+        assertEquals(1, response.getTotalCount());
+        assertEquals(1, response.getClaimedCount());
+        assertEquals(0, response.getHatchingCount());
+        assertEquals(0, response.getStuckCount());
+        assertEquals(1, response.getEggs().size());
         assertTrue(response.getMessage().contains("danh sách thông tin"));
     }
 
@@ -262,5 +279,84 @@ class ClaimEggServiceTest {
         claimService.claimEggReward("order-uuid", 1, "127.0.0.1");
 
         assertEquals(0, cleanCustomer.getEarlyHatchCredits());
+    }
+
+    @Test
+    void claimEggReward_MultipleStates_ReturnsAccurateCounts() {
+        // Egg 1: READY_TO_CLAIM -> gets claimed
+        Egg egg1 = Egg.builder()
+                .id("egg-1")
+                .eggType(2)
+                .status("READY_TO_CLAIM")
+                .giftPool(GiftPool.builder().id("pool-1").tier("A").build())
+                .order(validOrder)
+                .productCode("prod-1")
+                .build();
+
+        // Egg 2: HATCHING
+        Egg egg2 = Egg.builder()
+                .id("egg-2")
+                .eggType(2)
+                .status("HATCHING")
+                .hatchAt(LocalDateTime.now().plusDays(5))
+                .order(validOrder)
+                .productCode("prod-1")
+                .build();
+
+        // Egg 3: READY_TO_CLAIM -> stuck (no account)
+        Egg egg3 = Egg.builder()
+                .id("egg-3")
+                .eggType(2)
+                .status("READY_TO_CLAIM")
+                .giftPool(GiftPool.builder().id("pool-2").tier("B").build())
+                .order(validOrder)
+                .productCode("prod-1")
+                .build();
+
+        // Egg 4: READY_TO_CLAIM -> stuck (missing gift pool)
+        Egg egg4 = Egg.builder()
+                .id("egg-4")
+                .eggType(2)
+                .status("READY_TO_CLAIM")
+                .giftPool(null) // no gift pool
+                .order(validOrder)
+                .productCode("prod-1")
+                .build();
+
+        List<Egg> eggs = List.of(egg1, egg2, egg3, egg4);
+
+        when(eggPort.loadEggsForClaim("order-uuid", 2)).thenReturn(eggs);
+        when(customerPort.loadByCustomerCodeForUpdate("CUS88")).thenReturn(Optional.of(cleanCustomer));
+        
+        // Mock account picking: pool-1 has account, pool-2 is empty
+        when(accountPort.pickAvailableAccountForUpdateSkipLocked("pool-1")).thenReturn(Optional.of(availableAccount));
+        when(accountPort.pickAvailableAccountForUpdateSkipLocked("pool-2")).thenReturn(Optional.empty());
+
+        when(eggPort.loadEggsByOrderId("order-uuid")).thenReturn(eggs);
+
+        ClaimEggResponse response = claimService.claimEggReward("order-uuid", 2, "127.0.0.1");
+
+        assertNotNull(response);
+        // 1 successfully claimed account (for egg1)
+        assertEquals(1, response.getAccounts().size());
+        assertEquals("gift_user", response.getAccounts().get(0).getUsername());
+
+        // Verify summary counts
+        assertEquals(4, response.getTotalCount());
+        assertEquals(1, response.getClaimedCount()); // egg1 is CLAIMED
+        assertEquals(1, response.getHatchingCount()); // egg2 is HATCHING
+        assertEquals(2, response.getStuckCount()); // egg3 (no account) and egg4 (no gift pool) are READY_TO_CLAIM
+
+        // Verify detailed eggs list
+        assertEquals(4, response.getEggs().size());
+        assertEquals("CLAIMED", response.getEggs().get(0).getDisplayStatus());
+        assertEquals("HATCHING", response.getEggs().get(1).getDisplayStatus());
+        assertEquals("READY_TO_CLAIM", response.getEggs().get(2).getDisplayStatus());
+        assertEquals("READY_TO_CLAIM", response.getEggs().get(3).getDisplayStatus());
+
+        // Verify message formatting
+        assertEquals("Mở trứng hoàn tất.", response.getMessage());
+
+        verify(notificationPort, times(2)).sendAlert(anyString()); // alert for egg3 (out of accounts) and egg4 (missing gift pool)
     }
 }

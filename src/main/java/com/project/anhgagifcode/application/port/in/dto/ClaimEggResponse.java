@@ -10,6 +10,10 @@ import java.util.List;
 @Value
 public class ClaimEggResponse {
     private List<ClaimedAccountDto> accounts;
+    private List<EggDisplayDto> eggs;
+    private int totalCount;
+    private int claimedCount;
+    private int hatchingCount;
     private int stuckCount;
     private String message;
 }

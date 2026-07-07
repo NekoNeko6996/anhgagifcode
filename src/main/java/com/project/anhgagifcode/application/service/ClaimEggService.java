@@ -4,6 +4,7 @@ import com.project.anhgagifcode.application.port.in.ClaimEggUseCase;
 import com.project.anhgagifcode.application.port.in.SyncKiotvietOrderUseCase;
 import com.project.anhgagifcode.application.port.in.dto.ClaimEggResponse;
 import com.project.anhgagifcode.application.port.in.dto.ClaimedAccountDto;
+import com.project.anhgagifcode.application.port.in.dto.EggDisplayDto;
 import com.project.anhgagifcode.application.port.out.*;
 import com.project.anhgagifcode.domain.exception.BusinessRuleViolationException;
 import com.project.anhgagifcode.domain.exception.ResourceNotFoundException;
@@ -180,6 +181,18 @@ public class ClaimEggService implements ClaimEggUseCase {
             List<Egg> updatedEggs = new ArrayList<>();
 
             for (Egg egg : readyEggs) {
+                if (egg.getGiftPool() == null) {
+                    notificationPort.sendAlert(String.format(
+                            "🚨 <b>CẢNH BÁO SỰ CỐ: Trứng chưa liên kết bể quà</b>\n" +
+                            "• Trứng ID: <code>%s</code>\n" +
+                            "• Loại trứng: <code>Loại %d</code>\n" +
+                            "• Lỗi: Trứng chưa được liên kết với bể quà nào.",
+                            egg.getId(), egg.getEggType()
+                    ));
+                    stuckCount++;
+                    continue;
+                }
+
                 String poolId = egg.getGiftPool().getId();
                 Optional<GiftAccount> accountOpt = accountPort.pickAvailableAccountForUpdateSkipLocked(poolId);
 
@@ -262,13 +275,37 @@ public class ClaimEggService implements ClaimEggUseCase {
             
             customerPort.saveCustomer(customer);
 
-            String msg = stuckCount > 0 
-                ? String.format("Mở trứng hoàn tất.", updatedEggs.size(), stuckCount)
-                : "Chúc mừng! Bạn đã mở trứng thành công.";
+            int totalCount = eggsToClaim.size();
+            int claimedCount = (int) eggsToClaim.stream().filter(e -> "CLAIMED".equals(e.getStatus())).count();
+            int hatchingCount = (int) eggsToClaim.stream().filter(e -> "HATCHING".equals(e.getStatus())).count();
+            int finalStuckCount = (int) eggsToClaim.stream().filter(e -> "READY_TO_CLAIM".equals(e.getStatus())).count();
+
+            List<EggDisplayDto> eggDtos = eggsToClaim.stream()
+                    .map(e -> EggDisplayDto.builder()
+                            .eggId(e.getId())
+                            .eggType(e.getEggType())
+                            .displayStatus(e.getStatus())
+                            .hatchAt(e.getHatchAt())
+                            .productCode(e.getProductCode())
+                            .build())
+                    .collect(Collectors.toList());
+
+            String msg;
+            if (finalStuckCount > 0) {
+                msg = "Mở trứng hoàn tất.";
+            } else if (hatchingCount > 0) {
+                msg = "Mở trứng thành công.";
+            } else {
+                msg = "Chúc mừng! Bạn đã mở trứng thành công.";
+            }
 
             return ClaimEggResponse.builder()
                     .accounts(claimedAccounts)
-                    .stuckCount(stuckCount)
+                    .eggs(eggDtos)
+                    .totalCount(totalCount)
+                    .claimedCount(claimedCount)
+                    .hatchingCount(hatchingCount)
+                    .stuckCount(finalStuckCount)
                     .message(msg)
                     .build();
         });
@@ -286,9 +323,28 @@ public class ClaimEggService implements ClaimEggUseCase {
                         .build())
                 .collect(Collectors.toList());
 
+        List<EggDisplayDto> eggDtos = eggs.stream()
+                .map(e -> EggDisplayDto.builder()
+                        .eggId(e.getId())
+                        .eggType(e.getEggType())
+                        .displayStatus(e.getStatus())
+                        .hatchAt(e.getHatchAt())
+                        .productCode(e.getProductCode())
+                        .build())
+                .collect(Collectors.toList());
+
+        int totalCount = eggs.size();
+        int claimedCount = (int) eggs.stream().filter(e -> "CLAIMED".equals(e.getStatus())).count();
+        int hatchingCount = (int) eggs.stream().filter(e -> "HATCHING".equals(e.getStatus())).count();
+        int computedStuckCount = (int) eggs.stream().filter(e -> "READY_TO_CLAIM".equals(e.getStatus())).count();
+
         return ClaimEggResponse.builder()
                 .accounts(claimedAccounts)
-                .stuckCount(stuckCount)
+                .eggs(eggDtos)
+                .totalCount(totalCount)
+                .claimedCount(claimedCount)
+                .hatchingCount(hatchingCount)
+                .stuckCount(Math.max(stuckCount, computedStuckCount))
                 .message(message)
                 .build();
     }
