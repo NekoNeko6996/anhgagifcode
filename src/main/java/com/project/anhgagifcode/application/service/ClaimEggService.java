@@ -311,7 +311,6 @@ public class ClaimEggService implements ClaimEggUseCase {
         });
     }
 
-    // Hàm tiện ích để giảm bớt code thừa
     private ClaimEggResponse buildResponseFromClaimedEggs(List<Egg> eggs, int stuckCount, String message) {
         List<ClaimedAccountDto> claimedAccounts = eggs.stream()
                 .filter(e -> e.getAccount() != null)
