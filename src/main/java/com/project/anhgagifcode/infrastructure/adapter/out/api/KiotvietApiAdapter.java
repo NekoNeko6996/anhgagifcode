@@ -65,7 +65,7 @@ public class KiotvietApiAdapter implements KiotvietApiPort {
 
             // 1. SỬA ĐƯỜNG DẪN API (Dùng endpoint lấy chi tiết hóa đơn theo Code)
             String url = apiUrl + "/invoices/code/" + orderCode;
-            log.info(apiUrl);
+            log.info(url);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setBearerAuth(token);
