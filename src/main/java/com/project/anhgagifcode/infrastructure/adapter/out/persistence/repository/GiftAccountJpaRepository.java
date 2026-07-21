@@ -27,4 +27,10 @@ public interface GiftAccountJpaRepository extends JpaRepository<GiftAccounts, St
     @org.springframework.data.jpa.repository.Modifying
     @Query("DELETE FROM GiftAccounts g WHERE g.id IN :accountIds")
     void deleteByIdIn(@Param("accountIds") java.util.List<String> accountIds);
-}
+
+    boolean existsByUsernameAndPlatform(String username, String platform);
+
+    boolean existsByUsernameAndPlatformAndIdNot(String username, String platform, String id);
+
+    java.util.List<GiftAccounts> findByUsernameIn(java.util.Collection<String> usernames);
+}

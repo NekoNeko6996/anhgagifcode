@@ -29,4 +29,11 @@ public interface GiftAccountPersistencePort {
     void deleteAccounts(List<String> ids);
 
     Optional<GiftAccount> findById(String id);
+
+    boolean existsByUsernameAndPlatform(String username, String platform);
+
+    boolean existsByUsernameAndPlatformAndIdNot(String username, String platform, String id);
+
+    List<GiftAccount> findByUsernameIn(java.util.Collection<String> usernames);
 }
+

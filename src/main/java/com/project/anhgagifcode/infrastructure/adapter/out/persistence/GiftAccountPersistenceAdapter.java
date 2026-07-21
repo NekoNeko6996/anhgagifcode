@@ -96,4 +96,24 @@ public class GiftAccountPersistenceAdapter implements GiftAccountPersistencePort
     public Optional<GiftAccount> findById(String id) {
         return repository.findById(id).map(mapper::toDomain);
     }
-}
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean existsByUsernameAndPlatform(String username, String platform) {
+        return repository.existsByUsernameAndPlatform(username, platform);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean existsByUsernameAndPlatformAndIdNot(String username, String platform, String id) {
+        return repository.existsByUsernameAndPlatformAndIdNot(username, platform, id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<GiftAccount> findByUsernameIn(java.util.Collection<String> usernames) {
+        return repository.findByUsernameIn(usernames).stream()
+                .map(mapper::toDomain)
+                .toList();
+    }
+}

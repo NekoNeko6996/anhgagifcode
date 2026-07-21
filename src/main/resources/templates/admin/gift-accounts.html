@@ -210,6 +210,52 @@
                         <button type="submit" class="btn btn-primary" id="btnSubmitUpload" disabled>Bắt đầu Import</button>
                     </div>
                 </form>
+
+                <!-- Report Area (Initially hidden) -->
+                <div id="uploadReportArea" style="display: none;">
+                    <div style="margin-bottom: 16px; padding: 12px; border-radius: 8px; background-color: rgba(40, 167, 69, 0.1); border: 1px solid rgba(40, 167, 69, 0.2);">
+                        <h4 style="color: #28a745; margin-top: 0; margin-bottom: 8px;"><i class="fa-solid fa-circle-check"></i> Import hoàn tất!</h4>
+                        <p style="margin: 4px 0; font-size: 14px; color: var(--text-primary);">Hệ thống đã thực hiện phân tích và xử lý file Excel.</p>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px;">
+                        <div style="padding: 10px; background: var(--bg-secondary); border-radius: 6px; text-align: center; border: 1px solid var(--border-color);">
+                            <div style="font-size: 11px; color: var(--text-secondary);">Tổng số dòng</div>
+                            <div style="font-size: 18px; font-weight: bold; color: var(--text-primary);" id="repTotalRows">0</div>
+                        </div>
+                        <div style="padding: 10px; background: rgba(40, 167, 69, 0.05); border-radius: 6px; text-align: center; border: 1px solid rgba(40, 167, 69, 0.2);">
+                            <div style="font-size: 11px; color: #28a745;">Thành công (Đã thêm)</div>
+                            <div style="font-size: 18px; font-weight: bold; color: #28a745;" id="repSuccess">0</div>
+                        </div>
+                        <div style="padding: 10px; background: rgba(255, 193, 7, 0.05); border-radius: 6px; text-align: center; border: 1px solid rgba(255, 193, 7, 0.2);">
+                            <div style="font-size: 11px; color: #ffc107;">Trùng trong file Excel</div>
+                            <div style="font-size: 18px; font-weight: bold; color: #ffc107;" id="repDupFile">0</div>
+                        </div>
+                        <div style="padding: 10px; background: rgba(220, 53, 69, 0.05); border-radius: 6px; text-align: center; border: 1px solid rgba(220, 53, 69, 0.2);">
+                            <div style="font-size: 11px; color: #dc3545;">Trùng trong hệ thống</div>
+                            <div style="font-size: 18px; font-weight: bold; color: #dc3545;" id="repDupDb">0</div>
+                        </div>
+                    </div>
+
+                    <!-- Details of skipped usernames -->
+                    <div id="repDetailsBox" style="display: none; margin-bottom: 16px;">
+                        <h5 style="margin-top: 0; margin-bottom: 8px; font-size: 13px; color: var(--text-primary);">Chi tiết các tài khoản bị bỏ qua:</h5>
+                        
+                        <div id="repFileDupsSection" style="display: none; margin-bottom: 8px;">
+                            <div style="font-size: 11px; font-weight: 600; color: #ffc107; margin-bottom: 4px;">Trùng lặp trong file:</div>
+                            <div id="repFileDupsList" style="max-height: 80px; overflow-y: auto; background: var(--bg-secondary); padding: 8px; border-radius: 4px; font-family: monospace; font-size: 11px; border: 1px solid var(--border-color); color: var(--text-secondary); word-break: break-all;"></div>
+                        </div>
+
+                        <div id="repDbDupsSection" style="display: none;">
+                            <div style="font-size: 11px; font-weight: 600; color: #dc3545; margin-bottom: 4px;">Đã tồn tại trong hệ thống:</div>
+                            <div id="repDbDupsList" style="max-height: 80px; overflow-y: auto; background: var(--bg-secondary); padding: 8px; border-radius: 4px; font-family: monospace; font-size: 11px; border: 1px solid var(--border-color); color: var(--text-secondary); word-break: break-all;"></div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer" style="padding-bottom: 0; padding-right: 0;">
+                        <button type="button" class="btn btn-primary" onclick="closeUploadModalAndReload()">Đóng và tải lại</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -340,10 +386,19 @@
             document.getElementById('uploadForm').reset();
             document.getElementById('fileNameDisplay').textContent = 'Chưa có file nào được chọn';
             document.getElementById('btnSubmitUpload').disabled = true;
+            
+            // Reset report view
+            document.getElementById('uploadForm').style.display = 'block';
+            document.getElementById('uploadReportArea').style.display = 'none';
+
             document.getElementById('uploadModal').classList.add('active');
         }
         function closeUploadModal() {
             document.getElementById('uploadModal').classList.remove('active');
+        }
+        function closeUploadModalAndReload() {
+            closeUploadModal();
+            loadGiftsData();
         }
 
         function handleFileChange(input) {
@@ -379,7 +434,16 @@
                     closeAddModal();
                     loadGiftsData();
                 } else {
-                    showAlert('Thêm tài khoản thất bại!', 'error');
+                    let errMsg = 'Thêm tài khoản thất bại!';
+                    if (response) {
+                        try {
+                            const errJson = await response.json();
+                            if (errJson && errJson.message) {
+                                errMsg = errJson.message;
+                            }
+                        } catch (e) {}
+                    }
+                    showAlert(errMsg, 'error');
                 }
             } catch (error) {
                 console.error('Error adding account:', error);
@@ -407,7 +471,16 @@
                     closeEditModal();
                     loadGiftsData();
                 } else {
-                    showAlert('Cập nhật thất bại!', 'error');
+                    let errMsg = 'Cập nhật thất bại!';
+                    if (response) {
+                        try {
+                            const errJson = await response.json();
+                            if (errJson && errJson.message) {
+                                errMsg = errJson.message;
+                            }
+                        } catch (e) {}
+                    }
+                    showAlert(errMsg, 'error');
                 }
             } catch (error) {
                 console.error('Error editing account:', error);
@@ -422,6 +495,11 @@
             const formData = new FormData();
             formData.append('file', fileInput.files[0]);
 
+            // Disable submit button during import
+            const submitBtn = document.getElementById('btnSubmitUpload');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Đang xử lý...';
+
             try {
                 const response = await fetchWithAuth('/api/admin/gift-accounts/upload', {
                     method: 'POST',
@@ -430,16 +508,66 @@
 
                 if (response && response.ok) {
                     const resData = await response.json();
-                    showAlert(`Import thành công! Đã thêm ${resData.totalImported} tài khoản.`, 'success');
-                    closeUploadModal();
-                    loadGiftsData();
+                    const report = resData.report;
+
+                    // Display results in report area
+                    document.getElementById('repTotalRows').textContent = report.totalRows;
+                    document.getElementById('repSuccess').textContent = report.successCount;
+                    document.getElementById('repDupFile').textContent = report.duplicateInFileCount;
+                    document.getElementById('repDupDb').textContent = report.duplicateInDbCount;
+
+                    // Populate skipped details
+                    let showDetails = false;
+
+                    if (report.duplicateInFileCount > 0) {
+                        document.getElementById('repFileDupsSection').style.display = 'block';
+                        document.getElementById('repFileDupsList').textContent = report.duplicateInFileUsernames.join(', ');
+                        showDetails = true;
+                    } else {
+                        document.getElementById('repFileDupsSection').style.display = 'none';
+                    }
+
+                    if (report.duplicateInDbCount > 0) {
+                        document.getElementById('repDbDupsSection').style.display = 'block';
+                        document.getElementById('repDbDupsList').textContent = report.duplicateInDbUsernames.join(', ');
+                        showDetails = true;
+                    } else {
+                        document.getElementById('repDbDupsSection').style.display = 'none';
+                    }
+
+                    if (showDetails) {
+                        document.getElementById('repDetailsBox').style.display = 'block';
+                    } else {
+                        document.getElementById('repDetailsBox').style.display = 'none';
+                    }
+
+                    // Toggle views
+                    document.getElementById('uploadForm').style.display = 'none';
+                    document.getElementById('uploadReportArea').style.display = 'block';
+                    
+                    showAlert(`Import hoàn tất! Thành công ${report.successCount} tài khoản.`, 'success');
                 } else {
-                    showAlert('Import thất bại. Kiểm tra cấu trúc file Excel!', 'error');
+                    let errMsg = 'Import thất bại. Kiểm tra cấu trúc file Excel!';
+                    if (response) {
+                        try {
+                            const errJson = await response.json();
+                            if (errJson && errJson.message) {
+                                errMsg = errJson.message;
+                            }
+                        } catch (e) {}
+                    }
+                    showAlert(errMsg, 'error');
                 }
             } catch (error) {
                 console.error('Import error:', error);
+                showAlert('Đã xảy ra lỗi khi kết nối máy chủ.', 'error');
+            } finally {
+                // Restore button state
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Bắt đầu Import';
             }
         }
+
 
         async function deleteSingle(id) {
             if (!confirm('Bạn có chắc chắn muốn xóa tài khoản này không? Mọi thông tin liên quan sẽ bị dọn sạch.')) return;

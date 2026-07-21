@@ -61,10 +61,10 @@ public class AdminGiftAccountController {
             @Parameter(description = "File Excel chứa danh sách tài khoản") 
             @RequestParam("file") MultipartFile file) {
         
-        int count = addGiftAccountUseCase.importAccountsFromExcel(file);
+        com.project.anhgagifcode.application.port.in.dto.ExcelImportResultDto report = addGiftAccountUseCase.importAccountsFromExcel(file);
         return ResponseEntity.ok(Map.of(
-                "message", "Import dữ liệu thành công!",
-                "totalImported", count
+                "message", "Import dữ liệu hoàn tất!",
+                "report", report
         ));
     }
 
