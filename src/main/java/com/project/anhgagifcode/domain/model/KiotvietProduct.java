@@ -16,4 +16,6 @@ public class KiotvietProduct {
     private Double basePrice;     
     private String imageUrl;      
     private LocalDateTime lastSyncedAt; 
+    private Integer eggType1Qty;
+    private Integer eggType2Qty;
 }

@@ -26,7 +26,24 @@ public class KiotvietProductPersistenceAdapter implements KiotvietProductPersist
 
     @Override
     public KiotvietProduct saveProduct(KiotvietProduct product) {
+        Optional<KiotvietProducts> existingOpt = repository.findById(product.getKvProductId());
         KiotvietProducts entity = mapper.toEntity(product);
+        if (existingOpt.isPresent()) {
+            KiotvietProducts existing = existingOpt.get();
+            if (product.getEggType1Qty() == null) {
+                entity.setEggType1Qty(existing.getEggType1Qty());
+            }
+            if (product.getEggType2Qty() == null) {
+                entity.setEggType2Qty(existing.getEggType2Qty());
+            }
+        } else {
+            if (entity.getEggType1Qty() == null) {
+                entity.setEggType1Qty(1);
+            }
+            if (entity.getEggType2Qty() == null) {
+                entity.setEggType2Qty(1);
+            }
+        }
         KiotvietProducts savedEntity = repository.save(entity);
         return mapper.toDomain(savedEntity);
     }

@@ -13,3 +13,8 @@ ALTER TABLE customers ADD COLUMN unban_at DATETIME DEFAULT NULL;
 INSERT INTO system_configs (config_key, config_value, description, updated_at) VALUES 
 ('BAN_DAY', '7', 'Số ngày khóa tài khoản khi vi phạm hoàn hàng', NOW()),
 ('PERMANENT_BAN', 'false', 'Kích hoạt khóa vĩnh viễn (true/false)', NOW());
+
+-- 4. Thêm cấu hình số lượng trứng phát cho từng sản phẩm
+ALTER TABLE kiotviet_products ADD COLUMN egg_type1_qty INT NOT NULL DEFAULT 1;
+ALTER TABLE kiotviet_products ADD COLUMN egg_type2_qty INT NOT NULL DEFAULT 1;
+

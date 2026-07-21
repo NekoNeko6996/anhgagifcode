@@ -36,6 +36,12 @@ public class KiotvietProductDto {
     @Schema(description = "Thời gian đồng bộ cuối cùng")
     private LocalDateTime lastSyncedAt;
     
+    @Schema(description = "Số lượng trứng thường (Loại 1) phát cho mỗi sản phẩm")
+    private Integer eggType1Qty;
+
+    @Schema(description = "Số lượng trứng ấp (Loại 2) phát cho mỗi sản phẩm")
+    private Integer eggType2Qty;
+
     @Schema(description = "Danh sách mapping cấu hình đẻ trứng")
     private List<ProductMappingDto> mappings;
 }

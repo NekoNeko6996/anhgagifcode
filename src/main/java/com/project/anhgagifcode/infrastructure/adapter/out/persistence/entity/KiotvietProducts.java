@@ -72,6 +72,28 @@ public class KiotvietProducts implements Serializable {
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "kvProductId")
     private Collection<ProductEggMappings> productEggMappingsCollection;
 
+    @Column(name = "egg_type1_qty")
+    private Integer eggType1Qty = 1;
+
+    @Column(name = "egg_type2_qty")
+    private Integer eggType2Qty = 1;
+
+    public Integer getEggType1Qty() {
+        return eggType1Qty;
+    }
+
+    public void setEggType1Qty(Integer eggType1Qty) {
+        this.eggType1Qty = eggType1Qty;
+    }
+
+    public Integer getEggType2Qty() {
+        return eggType2Qty;
+    }
+
+    public void setEggType2Qty(Integer eggType2Qty) {
+        this.eggType2Qty = eggType2Qty;
+    }
+
     public KiotvietProducts() {
     }
 

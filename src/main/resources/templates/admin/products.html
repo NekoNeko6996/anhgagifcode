@@ -127,6 +127,41 @@
         </div>
     </div>
 
+    <!-- Qty Configuration Modal -->
+    <div class="modal-overlay" id="qtyModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Cấu hình số trứng phát</h3>
+                <button class="modal-close" onclick="closeQtyModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="qtyForm" onsubmit="submitQty(event)">
+                    <input type="hidden" id="qtyProductId">
+                    
+                    <div class="form-group">
+                        <label class="form-label">Sản phẩm chọn</label>
+                        <input class="form-input" type="text" id="qtyProductName" readonly>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="qtyEggType1">Số trứng Thường (Loại 1) phát cho mỗi sản phẩm</label>
+                        <input class="form-input" type="number" id="qtyEggType1" min="0" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="qtyEggType2">Số trứng Ấp (Loại 2) phát cho mỗi sản phẩm</label>
+                        <input class="form-input" type="number" id="qtyEggType2" min="0" required>
+                    </div>
+
+                    <div class="modal-footer" style="padding-bottom: 0; padding-right: 0;">
+                        <button type="button" class="btn btn-secondary" onclick="closeQtyModal()">Hủy</button>
+                        <button type="submit" class="btn btn-primary">Lưu cấu hình</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Script imports & Alert container -->
     <div th:replace="~{admin/fragments :: footerScripts}"></div>
 
@@ -233,8 +268,18 @@
                     <td style="font-family:monospace; font-size:13px; color:var(--text-secondary);">${prod.code || '-'}</td>
                     <td style="font-weight:600; color:var(--text-primary); max-width: 250px;">${prod.name || '-'}</td>
                     <td>${formattedPrice}</td>
-                    <td><div style="display:flex; flex-direction:column; gap: 4px;">${mappingsLayoutType1}</div></td>
-                    <td><div style="display:flex; flex-direction:column; gap: 4px;">${mappingsLayoutType2}</div></td>
+                    <td>
+                        <div style="display:flex; flex-direction:column; gap: 4px;">
+                            <div style="display: inline-block; font-size:11px; font-weight:600; color: #4caf50; background: rgba(76, 175, 80, 0.1); border: 1px solid rgba(76, 175, 80, 0.2); padding: 2px 8px; border-radius: 20px; margin-bottom: 6px; width: fit-content;"><i class="fa-solid fa-egg"></i> Phát: ${prod.eggType1Qty !== undefined ? prod.eggType1Qty : 1} quả</div>
+                            ${mappingsLayoutType1}
+                        </div>
+                    </td>
+                    <td>
+                        <div style="display:flex; flex-direction:column; gap: 4px;">
+                            <div style="display: inline-block; font-size:11px; font-weight:600; color: #ff9800; background: rgba(255, 152, 0, 0.1); border: 1px solid rgba(255, 152, 0, 0.2); padding: 2px 8px; border-radius: 20px; margin-bottom: 6px; width: fit-content;"><i class="fa-solid fa-egg"></i> Phát: ${prod.eggType2Qty !== undefined ? prod.eggType2Qty : 1} quả</div>
+                            ${mappingsLayoutType2}
+                        </div>
+                    </td>
                     <td>
                         <div style="display:flex; gap:6px; flex-wrap: wrap;">
                             <button class="btn btn-secondary" style="padding: 6px 12px; font-size:12px;" onclick="openMappingModal(${prod.kvProductId}, '${prod.name.replace(/'/g, "\\'")}')">
@@ -245,6 +290,9 @@
                                     <i class="fa-solid fa-percent"></i> Tỉ lệ
                                 </button>
                             ` : ''}
+                            <button class="btn btn-secondary" style="padding: 6px 12px; font-size:12px; background-color: rgba(76, 175, 80, 0.05); color: #4caf50; border-color: rgba(76, 175, 80, 0.2);" onclick="openQtyModal(${prod.kvProductId}, '${prod.name.replace(/'/g, "\\'")}', ${prod.eggType1Qty !== undefined ? prod.eggType1Qty : 1}, ${prod.eggType2Qty !== undefined ? prod.eggType2Qty : 1})">
+                                <i class="fa-solid fa-egg"></i> Số trứng
+                            </button>
                         </div>
                 `;
                 tbody.appendChild(tr);
@@ -499,6 +547,45 @@
                 }
             } catch (error) {
                 console.error('Rates submit error:', error);
+            }
+        }
+
+        // Qty Configuration Modal Control
+        function openQtyModal(productId, productName, eggType1Qty, eggType2Qty) {
+            document.getElementById('qtyProductId').value = productId;
+            document.getElementById('qtyProductName').value = productName;
+            document.getElementById('qtyEggType1').value = eggType1Qty;
+            document.getElementById('qtyEggType2').value = eggType2Qty;
+            document.getElementById('qtyModal').classList.add('active');
+        }
+
+        function closeQtyModal() {
+            document.getElementById('qtyModal').classList.remove('active');
+        }
+
+        async function submitQty(e) {
+            e.preventDefault();
+            const productId = parseInt(document.getElementById('qtyProductId').value);
+            const eggType1Qty = parseInt(document.getElementById('qtyEggType1').value);
+            const eggType2Qty = parseInt(document.getElementById('qtyEggType2').value);
+
+            try {
+                const response = await fetchWithAuth(`/api/admin/products/${productId}/egg-quantities`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ eggType1Qty, eggType2Qty })
+                });
+
+                if (response && response.ok) {
+                    showAlert('Cấu hình số trứng phát thành công!', 'success');
+                    closeQtyModal();
+                    loadProductsData();
+                } else {
+                    const errorObj = await response.json().catch(() => null);
+                    const errorMsg = errorObj && errorObj.message ? errorObj.message : 'Cấu hình số lượng trứng thất bại!';
+                    showAlert(errorMsg, 'error');
+                }
+            } catch (error) {
+                console.error('Qty submit error:', error);
             }
         }
     </script>

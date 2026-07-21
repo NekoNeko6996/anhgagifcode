@@ -175,4 +175,10 @@ public class UseCaseConfig {
             org.springframework.security.crypto.password.PasswordEncoder passwordEncoder) {
         return new UpdateAdminCredentialsService(adminJpaRepository, passwordEncoder);
     }
+
+    @Bean
+    public UpdateProductEggQuantitiesUseCase updateProductEggQuantitiesUseCase(
+            KiotvietProductPersistencePort productPersistencePort) {
+        return new UpdateProductEggQuantitiesService(productPersistencePort);
+    }
 }

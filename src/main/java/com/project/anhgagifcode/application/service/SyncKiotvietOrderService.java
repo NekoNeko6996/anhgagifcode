@@ -423,16 +423,19 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
 
         for (KiotvietOrderItem item : items) {
             String productCode = "UNKNOWN";
+            Optional<KiotvietProduct> prodOpt = Optional.empty();
             try {
                 long prodId = Long.parseLong(item.getKvProductId());
-                productCode = productPort.findById(prodId)
-                        .map(KiotvietProduct::getCode)
-                        .orElse("UNKNOWN");
+                prodOpt = productPort.findById(prodId);
+                productCode = prodOpt.map(KiotvietProduct::getCode).orElse("UNKNOWN");
             } catch (NumberFormatException e) {
                 // ignore
             }
 
             final String finalProductCode = productCode;
+            int eggType1Qty = prodOpt.map(p -> p.getEggType1Qty() != null ? p.getEggType1Qty() : 1).orElse(1);
+            int eggType2Qty = prodOpt.map(p -> p.getEggType2Qty() != null ? p.getEggType2Qty() : 1).orElse(1);
+
             List<ProductEggMapping> type1Mappings = mappings.stream()
                     .filter(m -> m.getProductCode() != null 
                             && String.valueOf(m.getProductCode().getKvProductId()).equals(item.getKvProductId())
@@ -453,7 +456,7 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
 
             int qty = item.getQuantity();
 
-            long type1ToGenerate = qty - existingType1Count;
+            long type1ToGenerate = ((long) qty * eggType1Qty) - existingType1Count;
             for (int i = 0; i < type1ToGenerate; i++) {
                 ProductEggMapping mapping1 = drawMappingFromList(type1Mappings);
                 if (mapping1 != null) {
@@ -478,7 +481,7 @@ public class SyncKiotvietOrderService implements SyncKiotvietOrderUseCase {
                 }
             }
 
-            long type2ToGenerate = qty - existingType2Count;
+            long type2ToGenerate = ((long) qty * eggType2Qty) - existingType2Count;
             for (int i = 0; i < type2ToGenerate; i++) {
                 ProductEggMapping mapping2 = drawMappingFromList(type2Mappings);
                 if (mapping2 != null) {

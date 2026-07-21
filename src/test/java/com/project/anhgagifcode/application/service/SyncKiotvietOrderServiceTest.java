@@ -338,4 +338,50 @@ class SyncKiotvietOrderServiceTest {
         // Verify apiPort was called with expected Full Code
         verify(apiPort, atLeastOnce()).fetchOrderFromKiotviet(expectedFullCode);
     }
+
+    @Test
+    void syncAndGetOrderDetails_CustomEggMultipliers_GeneratesCorrectCounts() {
+        // Set multipliers
+        KiotvietProduct customProduct = KiotvietProduct.builder()
+                .kvProductId(1L)
+                .code("prod-1")
+                .name("Sản phẩm 1")
+                .eggType1Qty(2)
+                .eggType2Qty(3)
+                .build();
+        when(productPort.findById(1L)).thenReturn(Optional.of(customProduct));
+
+        // Set quantity = 2 in order
+        mockOrder.setOrderItems(List.of(
+                KiotvietOrderItem.builder()
+                        .id("item-1")
+                        .kvProductId("1")
+                        .quantity(2)
+                        .build()
+        ));
+
+        when(orderPort.loadByOrderCode("OD123")).thenReturn(Optional.of(mockOrder));
+        when(customerPort.loadByCustomerCode("CUS99")).thenReturn(Optional.of(cleanCustomer));
+        
+        when(mappingPort.loadMappingsByProductIds(List.of("1")))
+                .thenReturn(List.of(mappingEgg1Lowest, mappingEgg2Lowest));
+
+        when(eggPort.loadEggsByOrderId("order-id")).thenReturn(Collections.emptyList());
+
+        List<Egg> generatedEggs = new ArrayList<>();
+        doAnswer(inv -> {
+            generatedEggs.addAll(inv.getArgument(0));
+            return null;
+        }).when(eggPort).saveAllEggs(anyList());
+
+        syncService.syncAndGetOrderDetails("OD123");
+
+        // Type 1 expected: quantity (2) * eggType1Qty (2) = 4 eggs
+        long type1Count = generatedEggs.stream().filter(e -> e.getEggType() == 1).count();
+        assertEquals(4, type1Count);
+
+        // Type 2 expected: quantity (2) * eggType2Qty (3) = 6 eggs
+        long type2Count = generatedEggs.stream().filter(e -> e.getEggType() == 2).count();
+        assertEquals(6, type2Count);
+    }
 }

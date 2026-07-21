@@ -64,6 +64,8 @@ public class GetKiotvietProductsService implements GetKiotvietProductsUseCase {
                             .basePrice(p.getBasePrice())
                             .imageUrl(p.getImageUrl())
                             .lastSyncedAt(p.getLastSyncedAt())
+                            .eggType1Qty(p.getEggType1Qty() != null ? p.getEggType1Qty() : 1)
+                            .eggType2Qty(p.getEggType2Qty() != null ? p.getEggType2Qty() : 1)
                             .mappings(mappingDtos)
                             .build();
                 })
